@@ -135,6 +135,45 @@ export const RadialTree: React.FC<RadialTreeProps> = ({ data, activeNodeId, onHo
   const canvasSize = radius * 2 + canvasPadding;
   const displayWidth = canvasSize;
 
+  const linkRenderData = useMemo(() => {
+    return links
+      .map((link) => {
+        const isActive = activeBranchIds.has(link.target.data.id);
+        const fileCount = link.target.value ?? (link.target.data.type === 'file' ? 1 : 0);
+        const normalizedCount = maxFiles > 0 ? fileCount / maxFiles : 0;
+        const baseWidth = 0.6;
+        const widthRange = 6.4;
+        let strokeWidth = baseWidth + normalizedCount * widthRange;
+        if (isActive) {
+          strokeWidth += 0.6;
+        }
+
+        const maxFileSize = maxFileSizeMap.get(link.target.data.id) ?? 0;
+        const denominator = sizePercentile90 > 0 ? sizePercentile90 : 1;
+        const normalizedSize = Math.min(maxFileSize / denominator, 1);
+        const interpolateChannel = (start: number, end: number) =>
+          Math.round(start + (end - start) * normalizedSize);
+        const strokeColor = `rgb(${interpolateChannel(startColor.r, endColor.r)}, ${interpolateChannel(
+          startColor.g,
+          endColor.g
+        )}, ${interpolateChannel(startColor.b, endColor.b)})`;
+
+        return {
+          link,
+          isActive,
+          strokeWidth,
+          strokeColor,
+          normalizedSize
+        };
+      })
+      .sort((a, b) => {
+        if (a.normalizedSize === b.normalizedSize) {
+          return Number(a.isActive) - Number(b.isActive);
+        }
+        return a.normalizedSize - b.normalizedSize;
+      });
+  }, [links, activeBranchIds, maxFiles, maxFileSizeMap, sizePercentile90]);
+
   return (
     <div className="radial-tree">
       <svg
@@ -157,36 +196,15 @@ export const RadialTree: React.FC<RadialTreeProps> = ({ data, activeNodeId, onHo
             ))}
           </g>
           <g className="radial-tree__links" fill="none">
-            {links.map((link) => {
-              const isActive = activeBranchIds.has(link.target.data.id);
-              const fileCount = link.target.value ?? (link.target.data.type === 'file' ? 1 : 0);
-              const normalizedCount = maxFiles > 0 ? fileCount / maxFiles : 0;
-              const baseWidth = 1;
-              const widthRange = 10;
-              let strokeWidth = baseWidth + normalizedCount * widthRange;
-              if (isActive) {
-                strokeWidth += 0.6;
-              }
-
-              const maxFileSize = maxFileSizeMap.get(link.target.data.id) ?? 0;
-              const denominator = sizePercentile90 > 0 ? sizePercentile90 : 1;
-              const normalizedSize = Math.min(maxFileSize / denominator, 1);
-              const interpolateChannel = (start: number, end: number) =>
-                Math.round(start + (end - start) * normalizedSize);
-              const strokeColor = `rgb(${interpolateChannel(startColor.r, endColor.r)}, ${interpolateChannel(
-                startColor.g,
-                endColor.g
-              )}, ${interpolateChannel(startColor.b, endColor.b)})`;
-              return (
-                <path
-                  key={link.target.data.id}
-                  d={linkPath(link) ?? undefined}
-                  className={isActive ? 'radial-tree__link radial-tree__link--active' : 'radial-tree__link'}
-                  strokeWidth={strokeWidth}
-                  stroke={strokeColor}
-                />
-              );
-            })}
+            {linkRenderData.map(({ link, isActive, strokeWidth, strokeColor }) => (
+              <path
+                key={link.target.data.id}
+                d={linkPath(link) ?? undefined}
+                className={isActive ? 'radial-tree__link radial-tree__link--active' : 'radial-tree__link'}
+                strokeWidth={strokeWidth}
+                stroke={strokeColor}
+              />
+            ))}
           </g>
           <g className="radial-tree__nodes">
             {nodes.map((node) => {
