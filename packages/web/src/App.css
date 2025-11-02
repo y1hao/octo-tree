@@ -90,8 +90,9 @@ body {
 }
 
 .radial-tree svg {
-  width: min(960px, 100%);
-  height: min(960px, 100%);
+  width: 100%;
+  max-width: 100%;
+  height: auto;
   border-radius: 999px;
   background: radial-gradient(circle at center, #eff6ff 0%, #ffffff 70%);
   box-shadow: inset 0 0 15px rgba(148, 163, 184, 0.25);

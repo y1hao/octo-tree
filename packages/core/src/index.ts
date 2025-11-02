@@ -1,10 +1,7 @@
 import { promises as fs } from 'fs';
 import type { Stats } from 'fs';
 import path from 'path';
-import { execFile } from 'child_process';
-import { promisify } from 'util';
-
-const execFileAsync = promisify(execFile);
+import { spawn } from 'child_process';
 
 export type NodeType = 'file' | 'directory';
 
@@ -57,11 +54,42 @@ const normalizeRepositoryPath = async (repoPath: string): Promise<string> => {
   return resolved;
 };
 
+const runGitCommand = async (repoPath: string, args: string[]): Promise<string> => {
+  return new Promise((resolve, reject) => {
+    const child = spawn('git', args, { cwd: repoPath });
+    let stdout = '';
+    let stderr = '';
+
+    child.stdout.setEncoding('utf8');
+    child.stdout.on('data', (chunk) => {
+      stdout += chunk;
+    });
+
+    child.stderr.setEncoding('utf8');
+    child.stderr.on('data', (chunk) => {
+      stderr += chunk;
+    });
+
+    child.on('error', (error) => {
+      reject(error);
+    });
+
+    child.on('close', (code) => {
+      if (code === 0) {
+        resolve(stdout);
+      } else {
+        const error = new GitRepositoryError(
+          `Git command failed (git ${args.join(' ')}): ${stderr.trim()}`
+        );
+        reject(error);
+      }
+    });
+  });
+};
+
 const resolveRepoRoot = async (repoPath: string): Promise<string> => {
   try {
-    const { stdout } = await execFileAsync('git', ['rev-parse', '--show-toplevel'], {
-      cwd: repoPath
-    });
+    const stdout = await runGitCommand(repoPath, ['rev-parse', '--show-toplevel']);
     return stdout.trim();
   } catch (error) {
     throw new GitRepositoryError(`Failed to locate git repository at ${repoPath}`);
@@ -69,15 +97,56 @@ const resolveRepoRoot = async (repoPath: string): Promise<string> => {
 };
 
 const listGitManagedFiles = async (repoPath: string): Promise<string[]> => {
-  const { stdout } = await execFileAsync(
-    'git',
-    ['ls-files', '--cached', '--others', '--exclude-standard'],
-    { cwd: repoPath }
-  );
-  return stdout
-    .split('\n')
-    .map((line) => line.trim())
-    .filter((line) => line.length > 0);
+  return new Promise((resolve, reject) => {
+    const child = spawn('git', ['ls-files', '--cached', '--others', '--exclude-standard'], {
+      cwd: repoPath
+    });
+
+    const files: string[] = [];
+    let buffer = '';
+    let stderr = '';
+
+    child.stdout.setEncoding('utf8');
+    child.stdout.on('data', (chunk: string) => {
+      buffer += chunk;
+      const lines = buffer.split('\n');
+      buffer = lines.pop() ?? '';
+      for (const line of lines) {
+        const trimmed = line.trim();
+        if (trimmed.length > 0) {
+          files.push(trimmed);
+        }
+      }
+    });
+
+    child.stderr.setEncoding('utf8');
+    child.stderr.on('data', (chunk) => {
+      stderr += chunk;
+    });
+
+    child.on('error', (error) => {
+      reject(error);
+    });
+
+    child.on('close', (code) => {
+      if (buffer.length > 0) {
+        const trimmed = buffer.trim();
+        if (trimmed.length > 0) {
+          files.push(trimmed);
+        }
+      }
+
+      if (code === 0) {
+        resolve(files);
+      } else {
+        reject(
+          new GitRepositoryError(
+            `Git command failed (git ls-files --cached --others --exclude-standard): ${stderr.trim()}`
+          )
+        );
+      }
+    });
+  });
 };
 
 const ensureChild = (parent: TreeNode, child: TreeNode): TreeNode => {

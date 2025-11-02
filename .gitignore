@@ -8,8 +8,8 @@ node_modules/
 *.lcov
 
 # Production
-/dist
-/build
+dist/
+build/
 
 # Misc
 .DS_Store

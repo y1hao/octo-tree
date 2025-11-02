@@ -1,6 +1,6 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import './App.css';
-import { RadialTree, type RadialTreeHandle } from './components/RadialTree';
+import { RadialTree } from './components/RadialTree';
 import type { TreeNode, TreeResponse } from './types';
 
 const formatTimestamp = (timestamp: number | null): string => {
@@ -60,8 +60,6 @@ export const App: React.FC = () => {
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const radialTreeRef = useRef<RadialTreeHandle>(null);
-
   const loadTree = useCallback(async () => {
     setLoading(true);
     setError(null);
@@ -85,7 +83,6 @@ export const App: React.FC = () => {
       });
       setTree(refreshedTree);
       setLastUpdated(updated);
-      radialTreeRef.current?.resetZoom();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Unknown error refreshing tree.');
     } finally {
@@ -123,10 +120,6 @@ export const App: React.FC = () => {
     return { files, directories, nodes, maxDepth };
   }, [tree]);
 
-  const handleResetView = () => {
-    radialTreeRef.current?.resetZoom();
-  };
-
   return (
     <div className="app">
       <header className="app__header">
@@ -149,14 +142,6 @@ export const App: React.FC = () => {
           >
             {refreshing ? 'Refreshing…' : 'Refresh Tree'}
           </button>
-          <button
-            type="button"
-            className="button"
-            onClick={handleResetView}
-            disabled={!tree}
-          >
-            Reset View
-          </button>
         </div>
       </header>
 
@@ -166,7 +151,6 @@ export const App: React.FC = () => {
           {error && !loading && <p role="alert">{error}</p>}
           {!loading && !error && tree && (
             <RadialTree
-              ref={radialTreeRef}
               data={tree}
               activeNodeId={hoveredNode?.id}
               onHover={setHoveredNode}

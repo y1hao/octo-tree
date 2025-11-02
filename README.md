@@ -6,7 +6,7 @@ Radial visualization tool for exploring git-tracked files in any repository. The
 - `packages/core` — Git-aware tree builder and shared types.
 - `packages/server` — Express server exposing `/api/tree` and hosting the built web assets.
 - `packages/cli` — Command-line entry point that launches the server for a target repo.
-- `packages/web` — React + Vite front-end (radial D3 visualization, zoom/hover interactions).
+- `packages/web` — React + Vite front-end (radial D3 visualization with hover interactions).
 
 ## Prerequisites
 - Node.js 18+
@@ -34,7 +34,9 @@ Options:
 - `--repo` defaults to the current working directory.
 - `--port` defaults to `3000`.
 
-When the CLI reports the server URL, open it in your browser to explore the radial tree. The visualization fetches `/api/tree` (gitignore-aware) and supports zoom/pan, hover details, and manual refresh via the UI or `POST /api/tree/refresh`.
+When the CLI reports the server URL, open it in your browser to explore the radial tree. The visualization fetches `/api/tree` (gitignore-aware) and supports hover details plus manual refresh via the UI or `POST /api/tree/refresh`.
+
+Large repositories are supported—the tree builder streams `git ls-files` output to avoid buffer limits.
 
 ## Development Scripts
 - `npm run dev --workspace @octotree/cli` — Run the CLI via `ts-node-dev` without rebuilding.
