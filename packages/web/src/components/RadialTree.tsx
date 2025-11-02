@@ -34,6 +34,7 @@ const formatBytes = (bytes: number): string => {
 export const RadialTree: React.FC<RadialTreeProps> = ({ data, activeNodeId, onHover }) => {
   const { root, radius, maxDepth } = useMemo(() => {
     const hierarchyRoot = hierarchy<TreeNode>(data, (node) => node.children);
+    hierarchyRoot.sum((node) => (node.type === 'file' ? 1 : 0));
     const layout = tree<TreeNode>()
       .size([2 * Math.PI, 1])
       .separation(separation);
@@ -59,6 +60,17 @@ export const RadialTree: React.FC<RadialTreeProps> = ({ data, activeNodeId, onHo
 
   const nodes = useMemo(() => root.descendants(), [root]);
   const links = useMemo(() => root.links(), [root]);
+
+  const maxFiles = useMemo(() => {
+    let max = 0;
+    for (const node of nodes) {
+      const files = node.value ?? (node.data.type === 'file' ? 1 : 0);
+      if (files > max) {
+        max = files;
+      }
+    }
+    return max;
+  }, [nodes]);
 
   const activeNode = useMemo(() => {
     if (!activeNodeId) {
@@ -112,11 +124,20 @@ export const RadialTree: React.FC<RadialTreeProps> = ({ data, activeNodeId, onHo
           <g className="radial-tree__links" fill="none">
             {links.map((link) => {
               const isActive = activeBranchIds.has(link.target.data.id);
+              const fileCount = link.target.value ?? (link.target.data.type === 'file' ? 1 : 0);
+              const normalized = maxFiles > 0 ? fileCount / maxFiles : 0;
+              const baseWidth = 0.6;
+              const widthRange = 6.4;
+              let strokeWidth = baseWidth + normalized * widthRange;
+              if (isActive) {
+                strokeWidth += 0.6;
+              }
               return (
                 <path
                   key={link.target.data.id}
                   d={linkPath(link) ?? undefined}
                   className={isActive ? 'radial-tree__link radial-tree__link--active' : 'radial-tree__link'}
+                  strokeWidth={strokeWidth}
                 />
               );
             })}

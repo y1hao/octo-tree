@@ -104,14 +104,12 @@ body {
 
 .radial-tree__links path {
   stroke: rgba(37, 99, 235, 0.25);
-  stroke-width: 1.1;
   stroke-linecap: round;
-  transition: stroke 120ms ease, stroke-opacity 120ms ease, stroke-width 120ms ease;
+  transition: stroke 120ms ease, stroke-opacity 120ms ease;
 }
 
 .radial-tree__link--active {
   stroke: rgba(37, 99, 235, 0.7);
-  stroke-width: 1.9;
   stroke-opacity: 1;
 }
 
