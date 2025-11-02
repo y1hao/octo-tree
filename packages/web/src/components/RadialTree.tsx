@@ -22,6 +22,7 @@ export interface RadialTreeHandle {
 
 interface RadialTreeProps {
   data: TreeNode;
+  activeNodeId?: string;
   width?: number;
   height?: number;
   onHover?: (node: TreeNode | null) => void;
@@ -45,7 +46,7 @@ const formatBytes = (bytes: number): string => {
 };
 
 export const RadialTree = forwardRef<RadialTreeHandle, RadialTreeProps>(
-  ({ data, width = 960, height = 960, onHover }, ref) => {
+  ({ data, activeNodeId, width = 960, height = 960, onHover }, ref) => {
     const svgRef = useRef<SVGSVGElement | null>(null);
     const gRef = useRef<SVGGElement | null>(null);
     const zoomBehaviorRef = useRef<ZoomBehavior<SVGSVGElement, unknown> | null>(null);
@@ -68,6 +69,20 @@ export const RadialTree = forwardRef<RadialTreeHandle, RadialTreeProps>(
 
     const nodes = useMemo(() => root.descendants(), [root]);
     const links = useMemo(() => root.links(), [root]);
+
+    const activeNode = useMemo(() => {
+      if (!activeNodeId) {
+        return null;
+      }
+      return nodes.find((node) => node.data.id === activeNodeId) ?? null;
+    }, [activeNodeId, nodes]);
+
+    const activeBranchIds = useMemo(() => {
+      if (!activeNode) {
+        return new Set<string>();
+      }
+      return new Set(activeNode.ancestors().map((ancestor) => ancestor.data.id));
+    }, [activeNode]);
 
     const linkPath = useMemo(() => {
       return linkRadial<HierarchyPointLink<TreeNode>, HierarchyPointNode<TreeNode>>()
@@ -110,6 +125,11 @@ export const RadialTree = forwardRef<RadialTreeHandle, RadialTreeProps>(
       }
     }));
 
+    const depthLevels = useMemo(() => {
+      const maxDepth = Math.max(1, root.height);
+      return Array.from({ length: maxDepth + 1 }, (_, index) => (index / maxDepth) * radius);
+    }, [root.height, radius]);
+
     return (
       <div className="radial-tree">
         <svg
@@ -121,41 +141,48 @@ export const RadialTree = forwardRef<RadialTreeHandle, RadialTreeProps>(
           aria-label="Radial file tree"
         >
           <g ref={gRef} transform={`translate(${width / 2}, ${height / 2})`}>
-            <g className="radial-tree__links" fill="none" stroke="#CBD5F5" strokeOpacity={0.7}>
-              {links.map((link) => (
-                <path key={link.target.data.id} d={linkPath(link) ?? undefined} strokeWidth={1.2} />
+            <g className="radial-tree__levels" fill="none">
+              {depthLevels.map((levelRadius, index) => (
+                <circle
+                  key={index}
+                  r={levelRadius}
+                  stroke="rgba(148, 163, 184, 0.25)"
+                  strokeDasharray="4 8"
+                />
               ))}
             </g>
-            <g className="radial-tree__nodes" fontFamily="var(--font-sans, sans-serif)" fontSize={11}>
+            <g className="radial-tree__links" fill="none">
+              {links.map((link) => {
+                const isActive = activeBranchIds.has(link.target.data.id);
+                return (
+                  <path
+                    key={link.target.data.id}
+                    d={linkPath(link) ?? undefined}
+                    className={isActive ? 'radial-tree__link radial-tree__link--active' : 'radial-tree__link'}
+                  />
+                );
+              })}
+            </g>
+            <g className="radial-tree__nodes">
               {nodes.map((node) => {
-                const isDirectory = node.data.type === 'directory';
-                const labelAnchor = node.x < Math.PI ? 'start' : 'end';
-                const labelRotation = node.x >= Math.PI ? 'rotate(180)' : undefined;
-                const labelOffset = node.x < Math.PI ? 10 : -10;
+                const isActive = activeBranchIds.has(node.data.id);
+                const isHovered = activeNode?.data.id === node.data.id;
+                const radiusValue = 10;
 
                 return (
                   <g
                     key={node.data.id}
                     transform={`rotate(${(node.x * 180) / Math.PI - 90}) translate(${node.y},0)`}
-                    className="radial-tree__node"
+                    className={`radial-tree__node${isActive ? ' radial-tree__node--active' : ''}${
+                      isHovered ? ' radial-tree__node--hovered' : ''
+                    }`}
                     onMouseEnter={() => onHover?.(node.data)}
                     onMouseLeave={() => onHover?.(null)}
                   >
                     <circle
-                      r={isDirectory ? 5 : 3.5}
-                      fill={isDirectory ? '#2563eb' : '#38bdf8'}
-                      stroke="#0f172a"
-                      strokeWidth={0.5}
+                      r={radiusValue}
+                      data-type={node.data.type}
                     />
-                    <text
-                      dy="0.31em"
-                      x={labelOffset}
-                      textAnchor={labelAnchor}
-                      transform={labelRotation}
-                      fill="#0f172a"
-                    >
-                      {node.data.name}
-                    </text>
                   </g>
                 );
               })}
@@ -164,10 +191,10 @@ export const RadialTree = forwardRef<RadialTreeHandle, RadialTreeProps>(
         </svg>
         <footer className="radial-tree__legend">
           <span className="legend-item">
-            <span className="legend-swatch legend-swatch--dir" /> Directory
+            <span className="legend-line legend-line--branch" /> Branch
           </span>
           <span className="legend-item">
-            <span className="legend-swatch legend-swatch--file" /> File
+            <span className="legend-line legend-line--branch-active" /> Active branch
           </span>
           <span className="legend-item">{formatBytes(data.size)} total</span>
         </footer>

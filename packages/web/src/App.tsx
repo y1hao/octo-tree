@@ -165,7 +165,12 @@ export const App: React.FC = () => {
           {loading && <p>Loading repository tree…</p>}
           {error && !loading && <p role="alert">{error}</p>}
           {!loading && !error && tree && (
-            <RadialTree ref={radialTreeRef} data={tree} onHover={setHoveredNode} />
+            <RadialTree
+              ref={radialTreeRef}
+              data={tree}
+              activeNodeId={hoveredNode?.id}
+              onHover={setHoveredNode}
+            />
           )}
         </section>
 
@@ -176,14 +181,14 @@ export const App: React.FC = () => {
           </div>
           <div className="sidebar__section">
             <h2 className="sidebar__title">Node Details</h2>
-            <p className="sidebar__body">{hoveredNode?.relativePath ?? 'Hover a node to inspect details.'}</p>
+            {!hoveredNode && <p className="sidebar__body">Hover a branch to inspect details.</p>}
             {hoveredNode && (
-              <>
-                <p className="sidebar__body">{formatNodeSummary(hoveredNode)}</p>
-                <p className="sidebar__body">
-                  Modified: {formatModifiedTime(hoveredNode.mtimeMs)}
-                </p>
-              </>
+              <div className="sidebar__body sidebar__body--stacked">
+                <span><strong>Name:</strong> {hoveredNode.name}</span>
+                <span><strong>Path:</strong> {hoveredNode.relativePath}</span>
+                <span><strong>Type:</strong> {formatNodeSummary(hoveredNode)}</span>
+                <span><strong>Modified:</strong> {formatModifiedTime(hoveredNode.mtimeMs)}</span>
+              </div>
             )}
           </div>
           <div className="sidebar__section">
