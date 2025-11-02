@@ -102,42 +102,14 @@ export const App: React.FC = () => {
 
   return (
     <div className="app">
-      <header className="app__header">
-        <div>
-          <h1 className="app__title">Octo Tree</h1>
-          <div className="app__status">
-            <span className="status__item">
-              <span className="status__badge" />
-              {tree ? 'API online' : 'Waiting for data'}
-            </span>
-            <span className="status__item">Last updated: {formatTimestamp(lastUpdated)}</span>
-          </div>
-        </div>
-        <div className="app__controls">
-          <button
-            type="button"
-            className="button"
-            onClick={refreshTreeData}
-            disabled={loading || refreshing}
-          >
-            {refreshing ? 'Refreshing…' : 'Refresh Tree'}
-          </button>
-        </div>
-      </header>
-
       <main className="app__content">
-        <section className="app__visualization">
-          {loading && <p>Loading repository tree…</p>}
-          {error && !loading && <p role="alert">{error}</p>}
-          {!loading && !error && tree && <RadialTree data={tree} />}
-        </section>
-
         <aside className="app__sidebar" aria-live="polite">
           <div className="sidebar__section">
             <h2 className="sidebar__title">Repository</h2>
             <div className="sidebar__body sidebar__body--stacked">
               <span><strong>Name:</strong> {tree?.name ?? '—'}</span>
               <span><strong>Total size:</strong> {tree ? formatBytes(tree.size) : '—'}</span>
+              <span><strong>Last sync:</strong> {formatTimestamp(lastUpdated)}</span>
             </div>
           </div>
           <div className="sidebar__section">
@@ -154,6 +126,12 @@ export const App: React.FC = () => {
             </p>
           </div>
         </aside>
+
+        <section className="app__visualization">
+          {loading && <p>Loading repository tree…</p>}
+          {error && !loading && <p role="alert">{error}</p>}
+          {!loading && !error && tree && <RadialTree data={tree} />}
+        </section>
       </main>
     </div>
   );

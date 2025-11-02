@@ -239,15 +239,6 @@ export const RadialTree: React.FC<RadialTreeProps> = ({ data }) => {
           </dl>
         </div>
       )}
-      <footer className="radial-tree__legend">
-        <span className="legend-item">
-          <span className="legend-line legend-line--branch" /> Branch
-        </span>
-        <span className="legend-item">
-          <span className="legend-line legend-line--branch-active" /> High density
-        </span>
-        <span className="legend-item">{formatBytes(data.size)} total</span>
-      </footer>
     </div>
   );
 };

@@ -34,7 +34,7 @@ Options:
 - `--repo` defaults to the current working directory.
 - `--port` defaults to `3000`.
 
-When the CLI reports the server URL, open it in your browser to explore the radial tree. The visualization fetches `/api/tree` (gitignore-aware), displays hover tooltips for branch metadata, and supports manual refresh via the UI or `POST /api/tree/refresh`.
+When the CLI reports the server URL, open it in your browser to explore the radial tree. The visualization fetches `/api/tree` (gitignore-aware), displays hover tooltips for branch metadata, and you can trigger a rebuild any time with `POST /api/tree/refresh`.
 
 Large repositories are supported—the tree builder streams `git ls-files` output to avoid buffer limits.
 
