@@ -1,8 +1,9 @@
+
 :root {
-  color-scheme: light;
+  color-scheme: dark;
   font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-  background-color: #f8fafc;
-  color: #0f172a;
+  background-color: #020617;
+  color: #e2e8f0;
 }
 
 body {
@@ -15,24 +16,28 @@ body {
   min-height: 100vh;
   display: flex;
   flex-direction: column;
+  background: radial-gradient(circle at 15% 10%, rgba(34, 197, 94, 0.16), transparent 55%),
+    radial-gradient(circle at 85% 15%, rgba(16, 185, 129, 0.1), transparent 60%), #020617;
 }
 
 .app__header {
   padding: 1rem 1.5rem;
-  border-bottom: 1px solid #e2e8f0;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.25);
   display: flex;
   flex-wrap: wrap;
   gap: 1rem;
   align-items: center;
   justify-content: space-between;
-  background: #ffffffaa;
-  backdrop-filter: blur(6px);
+  background: rgba(15, 23, 42, 0.82);
+  backdrop-filter: blur(12px);
+  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.35);
 }
 
 .app__title {
   margin: 0;
   font-size: 1.5rem;
   font-weight: 600;
+  color: #f0fdf4;
 }
 
 .app__controls {
@@ -44,13 +49,14 @@ body {
 .button {
   appearance: none;
   border: none;
-  border-radius: 0.5rem;
-  padding: 0.5rem 1rem;
-  background: linear-gradient(135deg, #2563eb, #38bdf8);
-  color: white;
-  font-weight: 500;
+  border-radius: 0.75rem;
+  padding: 0.55rem 1.1rem;
+  background: linear-gradient(135deg, #16a34a, #22c55e);
+  color: #032616;
+  font-weight: 600;
   cursor: pointer;
   transition: transform 120ms ease, filter 120ms ease;
+  box-shadow: 0 12px 22px rgba(34, 197, 94, 0.25);
 }
 
 .button:disabled {
@@ -62,6 +68,7 @@ body {
   filter: brightness(1.05);
   transform: translateY(-1px);
 }
+
 
 .app__content {
   flex: 1;
@@ -76,10 +83,11 @@ body {
   justify-content: center;
   align-items: center;
   min-height: 60vh;
-  background: #ffffff;
-  border-radius: 1rem;
-  box-shadow: 0 12px 30px rgba(15, 23, 42, 0.08);
-  padding: 1rem;
+  background: rgba(10, 19, 28, 0.85);
+  border-radius: 1.25rem;
+  box-shadow: 0 28px 60px rgba(0, 0, 0, 0.55);
+  padding: 1.75rem;
+  border: 1px solid rgba(34, 197, 94, 0.12);
 }
 
 .radial-tree {
@@ -87,37 +95,38 @@ body {
   flex-direction: column;
   align-items: center;
   gap: 0.75rem;
+  position: relative;
 }
+
 
 .radial-tree svg {
   width: 100%;
   max-width: 100%;
   height: auto;
   border-radius: 999px;
-  background: radial-gradient(circle at center, #eff6ff 0%, #ffffff 70%);
-  box-shadow: inset 0 0 15px rgba(148, 163, 184, 0.25);
+  background: radial-gradient(circle at center, rgba(34, 197, 94, 0.2) 0%, rgba(15, 23, 42, 0.92) 68%);
+  box-shadow: inset 0 0 45px rgba(7, 89, 53, 0.4);
+  border: 1px solid rgba(34, 197, 94, 0.15);
 }
 
 .radial-tree__levels circle {
   transition: opacity 180ms ease;
+  stroke: rgba(148, 163, 184, 0.25);
 }
 
 .radial-tree__links path {
   stroke-linecap: round;
-  stroke-opacity: 0.75;
+  stroke-opacity: 0.85;
   transition: stroke 120ms ease, stroke-opacity 120ms ease;
 }
 
-.radial-tree__link--active {
-  stroke-opacity: 1;
-}
-
 .radial-tree__nodes {
-  pointer-events: none;
+  pointer-events: auto;
 }
 
 .radial-tree__node {
   pointer-events: auto;
+  cursor: pointer;
 }
 
 .radial-tree__node circle {
@@ -126,11 +135,58 @@ body {
   stroke: transparent;
 }
 
+.radial-tree__tooltip {
+  position: absolute;
+  transform: translate(-50%, calc(-100% - 16px));
+  background: rgba(10, 19, 28, 0.92);
+  color: #f8fafc;
+  padding: 0.75rem 1rem;
+  border-radius: 0.75rem;
+  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.45);
+  border: 1px solid rgba(34, 197, 94, 0.2);
+  pointer-events: none;
+  min-width: 200px;
+  z-index: 5;
+}
+
+.tooltip__title {
+  margin: 0 0 0.5rem;
+  font-size: 1rem;
+  font-weight: 600;
+  color: #bbf7d0;
+}
+
+.tooltip__list {
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.4rem;
+}
+
+.tooltip__item {
+  display: grid;
+  grid-template-columns: 70px 1fr;
+  gap: 0.4rem;
+  font-size: 0.85rem;
+}
+
+.tooltip__item dt {
+  font-weight: 500;
+  color: rgba(226, 232, 240, 0.7);
+}
+
+.tooltip__item dd {
+  margin: 0;
+  font-family: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;
+  color: rgba(226, 232, 240, 0.95);
+}
+
+
 .radial-tree__legend {
   display: flex;
   gap: 1rem;
   font-size: 0.9rem;
-  color: #334155;
+  color: rgba(226, 232, 240, 0.8);
 }
 
 .legend-item {
@@ -149,21 +205,24 @@ body {
   border-radius: 999px;
 }
 
+
 .legend-line--branch {
-  background: linear-gradient(90deg, rgba(37, 99, 235, 0.25), rgba(37, 99, 235, 0.45));
+  background: linear-gradient(90deg, rgba(34, 197, 94, 0.25), rgba(34, 197, 94, 0.5));
 }
 
 .legend-line--branch-active {
-  background: linear-gradient(90deg, rgba(37, 99, 235, 0.7), rgba(29, 78, 216, 0.95));
+  background: linear-gradient(90deg, rgba(34, 197, 94, 0.65), rgba(244, 255, 239, 0.85));
 }
 
+
 .app__sidebar {
-  background: #ffffff;
-  border-radius: 1rem;
-  padding: 1.5rem;
-  box-shadow: 0 12px 30px rgba(15, 23, 42, 0.08);
+  background: rgba(10, 19, 28, 0.9);
+  border-radius: 1.25rem;
+  padding: 1.75rem;
+  box-shadow: 0 28px 60px rgba(0, 0, 0, 0.55);
   display: grid;
   gap: 1rem;
+  border: 1px solid rgba(34, 197, 94, 0.12);
 }
 
 .sidebar__section {
@@ -171,16 +230,18 @@ body {
   gap: 0.25rem;
 }
 
+
 .sidebar__title {
   margin: 0;
   font-weight: 600;
   font-size: 1rem;
+  color: #bbf7d0;
 }
 
 .sidebar__body {
   font-family: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;
   font-size: 0.9rem;
-  color: #0f172a;
+  color: #e2f7eb;
   word-break: break-word;
 }
 
@@ -189,12 +250,13 @@ body {
   gap: 0.35rem;
 }
 
+
 .app__status {
   display: flex;
   gap: 1rem;
   flex-wrap: wrap;
   font-size: 0.9rem;
-  color: #334155;
+  color: rgba(226, 232, 240, 0.75);
 }
 
 .status__item {

@@ -11,13 +11,6 @@ const formatTimestamp = (timestamp: number | null): string => {
   return `${date.toLocaleDateString()} ${date.toLocaleTimeString()}`;
 };
 
-const formatModifiedTime = (timestamp: number): string => {
-  if (!timestamp) {
-    return '—';
-  }
-  return new Date(timestamp).toLocaleString();
-};
-
 const formatBytes = (bytes: number): string => {
   if (!bytes) {
     return '0 B';
@@ -26,18 +19,6 @@ const formatBytes = (bytes: number): string => {
   const magnitude = Math.min(Math.floor(Math.log(bytes) / Math.log(1024)), units.length - 1);
   const value = bytes / Math.pow(1024, magnitude);
   return `${value.toFixed(value >= 10 || magnitude === 0 ? 0 : 1)} ${units[magnitude]}`;
-};
-
-const formatNodeSummary = (node: TreeNode | null): string => {
-  if (!node) {
-    return 'Hover a node to inspect details.';
-  }
-  const typeLabel = node.type === 'directory' ? 'Directory' : 'File';
-  const childCount = node.children?.length ?? 0;
-  if (node.type === 'directory') {
-    return `${typeLabel} · ${childCount} item(s)`;
-  }
-  return `${typeLabel} · ${formatBytes(node.size)}`;
 };
 
 const fetchTree = async (endpoint: string, init?: RequestInit): Promise<TreeResponse> => {
@@ -55,7 +36,6 @@ const fetchTree = async (endpoint: string, init?: RequestInit): Promise<TreeResp
 export const App: React.FC = () => {
   const [tree, setTree] = useState<TreeNode | null>(null);
   const [lastUpdated, setLastUpdated] = useState<number | null>(null);
-  const [hoveredNode, setHoveredNode] = useState<TreeNode | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -149,31 +129,16 @@ export const App: React.FC = () => {
         <section className="app__visualization">
           {loading && <p>Loading repository tree…</p>}
           {error && !loading && <p role="alert">{error}</p>}
-          {!loading && !error && tree && (
-            <RadialTree
-              data={tree}
-              activeNodeId={hoveredNode?.id}
-              onHover={setHoveredNode}
-            />
-          )}
+          {!loading && !error && tree && <RadialTree data={tree} />}
         </section>
 
         <aside className="app__sidebar" aria-live="polite">
           <div className="sidebar__section">
             <h2 className="sidebar__title">Repository</h2>
-            <p className="sidebar__body">{tree?.name ?? '—'}</p>
-          </div>
-          <div className="sidebar__section">
-            <h2 className="sidebar__title">Node Details</h2>
-            {!hoveredNode && <p className="sidebar__body">Hover a branch to inspect details.</p>}
-            {hoveredNode && (
-              <div className="sidebar__body sidebar__body--stacked">
-                <span><strong>Name:</strong> {hoveredNode.name}</span>
-                <span><strong>Path:</strong> {hoveredNode.relativePath}</span>
-                <span><strong>Type:</strong> {formatNodeSummary(hoveredNode)}</span>
-                <span><strong>Modified:</strong> {formatModifiedTime(hoveredNode.mtimeMs)}</span>
-              </div>
-            )}
+            <div className="sidebar__body sidebar__body--stacked">
+              <span><strong>Name:</strong> {tree?.name ?? '—'}</span>
+              <span><strong>Total size:</strong> {tree ? formatBytes(tree.size) : '—'}</span>
+            </div>
           </div>
           <div className="sidebar__section">
             <h2 className="sidebar__title">Statistics</h2>

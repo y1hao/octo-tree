@@ -34,11 +34,11 @@ Options:
 - `--repo` defaults to the current working directory.
 - `--port` defaults to `3000`.
 
-When the CLI reports the server URL, open it in your browser to explore the radial tree. The visualization fetches `/api/tree` (gitignore-aware) and supports hover details plus manual refresh via the UI or `POST /api/tree/refresh`.
+When the CLI reports the server URL, open it in your browser to explore the radial tree. The visualization fetches `/api/tree` (gitignore-aware), displays hover tooltips for branch metadata, and supports manual refresh via the UI or `POST /api/tree/refresh`.
 
 Large repositories are supported—the tree builder streams `git ls-files` output to avoid buffer limits.
 
-Branch thickness reflects how many files live inside a directory, and branch color darkens with the largest descendant file size (capped at the 90th percentile) so dense, heavyweight areas stand out immediately.
+Branch thickness reflects how many files live inside a directory, and branch color lightens with the largest descendant file size (capped at the 90th percentile) so dense, heavyweight areas stand out immediately against the dark, green canvas.
 
 ## Development Scripts
 - `npm run dev --workspace @octotree/cli` — Run the CLI via `ts-node-dev` without rebuilding.

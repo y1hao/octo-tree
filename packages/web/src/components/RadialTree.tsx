@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useCallback, useMemo, useRef, useState } from 'react';
 import {
   hierarchy,
   tree,
@@ -10,8 +10,12 @@ import type { TreeNode } from '../types';
 
 interface RadialTreeProps {
   data: TreeNode;
-  activeNodeId?: string;
-  onHover?: (node: TreeNode | null) => void;
+}
+
+interface TooltipState {
+  node: TreeNode;
+  x: number;
+  y: number;
 }
 
 const separation = (
@@ -31,9 +35,12 @@ const formatBytes = (bytes: number): string => {
   return `${value.toFixed(value >= 10 || magnitude === 0 ? 0 : 1)} ${units[magnitude]}`;
 };
 
-export const RadialTree: React.FC<RadialTreeProps> = ({ data, activeNodeId, onHover }) => {
-  const startColor = { r: 191, g: 219, b: 254 }; // #bfdbfe
-  const endColor = { r: 29, g: 78, b: 216 }; // #1d4ed8
+export const RadialTree: React.FC<RadialTreeProps> = ({ data }) => {
+  const startColor = { r: 21, g: 94, b: 51 }; // #155e33
+  const endColor = { r: 209, g: 250, b: 229 }; // #d1fae5
+
+  const containerRef = useRef<HTMLDivElement | null>(null);
+  const [tooltip, setTooltip] = useState<TooltipState | null>(null);
 
   const { root, radius, maxDepth, maxFileSizeMap, sizePercentile90 } = useMemo(() => {
     const hierarchyRoot = hierarchy<TreeNode>(data, (node) => node.children);
@@ -93,33 +100,16 @@ export const RadialTree: React.FC<RadialTreeProps> = ({ data, activeNodeId, onHo
     };
   }, [data]);
 
-  const nodes = useMemo(() => root.descendants(), [root]);
-  const links = useMemo(() => root.links(), [root]);
-
   const maxFiles = useMemo(() => {
     let max = 0;
-    for (const node of nodes) {
+    for (const node of root.descendants()) {
       const files = node.value ?? (node.data.type === 'file' ? 1 : 0);
       if (files > max) {
         max = files;
       }
     }
     return max;
-  }, [nodes]);
-
-  const activeNode = useMemo(() => {
-    if (!activeNodeId) {
-      return null;
-    }
-    return nodes.find((node) => node.data.id === activeNodeId) ?? null;
-  }, [activeNodeId, nodes]);
-
-  const activeBranchIds = useMemo(() => {
-    if (!activeNode) {
-      return new Set<string>();
-    }
-    return new Set(activeNode.ancestors().map((ancestor) => ancestor.data.id));
-  }, [activeNode]);
+  }, [root]);
 
   const linkPath = useMemo(() => {
     return linkRadial<HierarchyPointLink<TreeNode>, HierarchyPointNode<TreeNode>>()
@@ -136,17 +126,14 @@ export const RadialTree: React.FC<RadialTreeProps> = ({ data, activeNodeId, onHo
   const displayWidth = canvasSize;
 
   const linkRenderData = useMemo(() => {
-    return links
+    return root
+      .links()
       .map((link) => {
-        const isActive = activeBranchIds.has(link.target.data.id);
         const fileCount = link.target.value ?? (link.target.data.type === 'file' ? 1 : 0);
         const normalizedCount = maxFiles > 0 ? fileCount / maxFiles : 0;
         const baseWidth = 0.6;
         const widthRange = 6.4;
-        let strokeWidth = baseWidth + normalizedCount * widthRange;
-        if (isActive) {
-          strokeWidth += 0.6;
-        }
+        const strokeWidth = baseWidth + normalizedCount * widthRange;
 
         const maxFileSize = maxFileSizeMap.get(link.target.data.id) ?? 0;
         const denominator = sizePercentile90 > 0 ? sizePercentile90 : 1;
@@ -160,22 +147,34 @@ export const RadialTree: React.FC<RadialTreeProps> = ({ data, activeNodeId, onHo
 
         return {
           link,
-          isActive,
           strokeWidth,
           strokeColor,
           normalizedSize
         };
       })
-      .sort((a, b) => {
-        if (a.normalizedSize === b.normalizedSize) {
-          return Number(a.isActive) - Number(b.isActive);
-        }
-        return a.normalizedSize - b.normalizedSize;
-      });
-  }, [links, activeBranchIds, maxFiles, maxFileSizeMap, sizePercentile90]);
+      .sort((a, b) => a.normalizedSize - b.normalizedSize);
+  }, [root, maxFiles, maxFileSizeMap, sizePercentile90, startColor, endColor]);
+
+  const handleLinkHover = useCallback(
+    (event: React.MouseEvent<SVGPathElement>, node: HierarchyPointNode<TreeNode>) => {
+      const rect = containerRef.current?.getBoundingClientRect();
+      if (!rect) {
+        setTooltip({ node: node.data, x: event.clientX, y: event.clientY });
+        return;
+      }
+      const x = event.clientX - rect.left;
+      const y = event.clientY - rect.top;
+      setTooltip({ node: node.data, x, y });
+    },
+    []
+  );
+
+  const resetTooltip = useCallback(() => {
+    setTooltip(null);
+  }, []);
 
   return (
-    <div className="radial-tree">
+    <div className="radial-tree" ref={containerRef}>
       <svg
         width={canvasSize}
         height={canvasSize}
@@ -190,51 +189,62 @@ export const RadialTree: React.FC<RadialTreeProps> = ({ data, activeNodeId, onHo
               <circle
                 key={index}
                 r={levelRadius}
-                stroke="rgba(148, 163, 184, 0.25)"
                 strokeDasharray="4 8"
               />
             ))}
           </g>
           <g className="radial-tree__links" fill="none">
-            {linkRenderData.map(({ link, isActive, strokeWidth, strokeColor }) => (
+            {linkRenderData.map(({ link, strokeWidth, strokeColor }) => (
               <path
                 key={link.target.data.id}
                 d={linkPath(link) ?? undefined}
-                className={isActive ? 'radial-tree__link radial-tree__link--active' : 'radial-tree__link'}
+                className="radial-tree__link"
                 strokeWidth={strokeWidth}
                 stroke={strokeColor}
+                onMouseEnter={(event) => handleLinkHover(event, link.target)}
+                onMouseMove={(event) => handleLinkHover(event, link.target)}
+                onMouseLeave={resetTooltip}
               />
             ))}
           </g>
-          <g className="radial-tree__nodes">
-            {nodes.map((node) => {
-              const isActive = activeBranchIds.has(node.data.id);
-              const isHovered = activeNode?.data.id === node.data.id;
-              const radiusValue = 10;
-
-              return (
-                <g
-                  key={node.data.id}
-                  transform={`rotate(${(node.x * 180) / Math.PI - 90}) translate(${node.y},0)`}
-                  className={`radial-tree__node${isActive ? ' radial-tree__node--active' : ''}${
-                    isHovered ? ' radial-tree__node--hovered' : ''
-                  }`}
-                  onMouseEnter={() => onHover?.(node.data)}
-                  onMouseLeave={() => onHover?.(null)}
-                >
-                  <circle r={radiusValue} data-type={node.data.type} />
-                </g>
-              );
-            })}
-          </g>
         </g>
       </svg>
+      {tooltip && (
+        <div
+          className="radial-tree__tooltip"
+          style={{ top: tooltip.y, left: tooltip.x }}
+          role="status"
+        >
+          <h3 className="tooltip__title">{tooltip.node.name}</h3>
+          <dl className="tooltip__list">
+            <div className="tooltip__item">
+              <dt>Path</dt>
+              <dd>{tooltip.node.relativePath}</dd>
+            </div>
+            <div className="tooltip__item">
+              <dt>Type</dt>
+              <dd>{tooltip.node.type}</dd>
+            </div>
+            {tooltip.node.type === 'directory' ? (
+              <div className="tooltip__item">
+                <dt>Entries</dt>
+                <dd>{tooltip.node.children?.length ?? 0}</dd>
+              </div>
+            ) : (
+              <div className="tooltip__item">
+                <dt>Size</dt>
+                <dd>{formatBytes(tooltip.node.size)}</dd>
+              </div>
+            )}
+          </dl>
+        </div>
+      )}
       <footer className="radial-tree__legend">
         <span className="legend-item">
           <span className="legend-line legend-line--branch" /> Branch
         </span>
         <span className="legend-item">
-          <span className="legend-line legend-line--branch-active" /> Active branch
+          <span className="legend-line legend-line--branch-active" /> High density
         </span>
         <span className="legend-item">{formatBytes(data.size)} total</span>
       </footer>
