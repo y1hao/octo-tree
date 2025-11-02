@@ -11,7 +11,13 @@ export interface TreeNode {
   children: TreeNode[];
 }
 
+export interface GitStats {
+  totalCommits: number | null;
+  latestCommitTimestamp: number | null;
+}
+
 export interface TreeResponse {
   tree: TreeNode;
   lastUpdated: number;
+  gitStats?: GitStats | null;
 }

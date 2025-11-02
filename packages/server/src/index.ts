@@ -2,6 +2,7 @@ import express, { Request, Response } from 'express';
 import path from 'path';
 import http from 'http';
 import { existsSync } from 'fs';
+import { spawn } from 'child_process';
 import {
   buildRepositoryTree,
   GitRepositoryError,
@@ -18,6 +19,64 @@ interface AppInstance {
   getTree: () => Promise<TreeNode>;
   refreshTree: () => Promise<TreeNode>;
 }
+
+interface GitStats {
+  totalCommits: number | null;
+  latestCommitTimestamp: number | null;
+}
+
+const runGitCommand = (repoPath: string, args: string[]): Promise<string> => {
+  return new Promise((resolve, reject) => {
+    const child = spawn('git', args, { cwd: repoPath });
+
+    let stdout = '';
+    let stderr = '';
+
+    child.stdout.setEncoding('utf8');
+    child.stdout.on('data', (chunk) => {
+      stdout += chunk;
+    });
+
+    child.stderr.setEncoding('utf8');
+    child.stderr.on('data', (chunk) => {
+      stderr += chunk;
+    });
+
+    child.on('error', (error) => {
+      reject(error);
+    });
+
+    child.on('close', (code) => {
+      if (code === 0) {
+        resolve(stdout.trim());
+      } else {
+        reject(new Error(stderr.trim() || `git ${args.join(' ')} exited with code ${code}`));
+      }
+    });
+  });
+};
+
+const collectGitStats = async (repoPath: string): Promise<GitStats> => {
+  try {
+    const [countOutput, timeOutput] = await Promise.all([
+      runGitCommand(repoPath, ['rev-list', '--count', 'HEAD']).catch(() => ''),
+      runGitCommand(repoPath, ['show', '-s', '--format=%ct', 'HEAD']).catch(() => '')
+    ]);
+
+    const totalCommits = countOutput ? Number.parseInt(countOutput, 10) : null;
+    const latestCommitTimestamp = timeOutput ? Number.parseInt(timeOutput, 10) * 1000 : null;
+
+    return {
+      totalCommits: Number.isNaN(totalCommits ?? NaN) ? null : totalCommits,
+      latestCommitTimestamp: Number.isNaN(latestCommitTimestamp ?? NaN)
+        ? null
+        : latestCommitTimestamp
+    };
+  } catch (error) {
+    console.warn('Failed to collect git statistics:', error);
+    return { totalCommits: null, latestCommitTimestamp: null };
+  }
+};
 
 const resolveStaticAssets = (): { root: string; indexPath: string } => {
   const distPath = path.resolve(__dirname, '..', '..', 'web', 'dist');
@@ -39,11 +98,13 @@ const createApp = (repoPath: string): AppInstance => {
   let cachedTree: TreeNode | null = null;
   let lastUpdated = 0;
   let buildPromise: Promise<TreeNode> | null = null;
+  let gitStats: GitStats | null = null;
 
   const runBuild = async (): Promise<TreeNode> => {
     const tree = await buildRepositoryTree({ repoPath });
     cachedTree = tree;
     lastUpdated = Date.now();
+    gitStats = await collectGitStats(repoPath);
     return tree;
   };
 
@@ -70,7 +131,10 @@ const createApp = (repoPath: string): AppInstance => {
   app.get('/api/tree', async (_req: Request, res: Response) => {
     try {
       const tree = await getTree();
-      res.json({ tree, lastUpdated });
+      if (!gitStats) {
+        gitStats = await collectGitStats(repoPath);
+      }
+      res.json({ tree, lastUpdated, gitStats });
     } catch (error) {
       if (error instanceof GitRepositoryError) {
         res.status(400).json({ error: error.message });
@@ -84,7 +148,10 @@ const createApp = (repoPath: string): AppInstance => {
   app.post('/api/tree/refresh', async (_req: Request, res: Response) => {
     try {
       const tree = await refreshTree();
-      res.json({ tree, lastUpdated });
+      if (!gitStats) {
+        gitStats = await collectGitStats(repoPath);
+      }
+      res.json({ tree, lastUpdated, gitStats });
     } catch (error) {
       if (error instanceof GitRepositoryError) {
         res.status(400).json({ error: error.message });

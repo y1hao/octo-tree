@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import './App.css';
 import { RadialTree } from './components/RadialTree';
-import type { TreeNode, TreeResponse } from './types';
+import type { TreeNode, TreeResponse, GitStats } from './types';
 
 const formatTimestamp = (timestamp: number | null): string => {
   if (!timestamp) {
@@ -39,14 +39,16 @@ export const App: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [gitStats, setGitStats] = useState<GitStats | null>(null);
 
   const loadTree = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-      const { tree: fetchedTree, lastUpdated: updated } = await fetchTree('/api/tree');
+      const { tree: fetchedTree, lastUpdated: updated, gitStats: stats } = await fetchTree('/api/tree');
       setTree(fetchedTree);
       setLastUpdated(updated);
+      setGitStats(stats ?? null);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Unknown error fetching tree.');
     } finally {
@@ -58,11 +60,12 @@ export const App: React.FC = () => {
     setRefreshing(true);
     setError(null);
     try {
-      const { tree: refreshedTree, lastUpdated: updated } = await fetchTree('/api/tree/refresh', {
+      const { tree: refreshedTree, lastUpdated: updated, gitStats: stats } = await fetchTree('/api/tree/refresh', {
         method: 'POST'
       });
       setTree(refreshedTree);
       setLastUpdated(updated);
+      setGitStats(stats ?? null);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Unknown error refreshing tree.');
     } finally {
@@ -109,6 +112,12 @@ export const App: React.FC = () => {
             <span className="sidebar__line">
               Directories: {aggregateStats ? aggregateStats.directories : '—'} · Files:{' '}
               {aggregateStats ? aggregateStats.files : '—'}
+            </span>
+            <span className="sidebar__line">
+              Latest commit: {formatTimestamp(gitStats?.latestCommitTimestamp ?? null)}
+            </span>
+            <span className="sidebar__line">
+              Total commits: {gitStats?.totalCommits ?? '—'}
             </span>
           </div>
         </aside>

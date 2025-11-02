@@ -38,7 +38,7 @@ When the CLI reports the server URL, open it in your browser to explore the radi
 
 Large repositories are supported—the tree builder streams `git ls-files` output to avoid buffer limits.
 
-Branch thickness reflects how many files live inside a directory, and branch color lightens with the largest descendant file size (capped at the 90th percentile) so dense, heavyweight areas stand out immediately against the dark, green canvas.
+Branch thickness reflects how many files live inside a directory, branch color lightens with the largest descendant file size (capped at the 90th percentile), and the sidebar highlights directories/files alongside latest commit time and commit count.
 
 ## Development Scripts
 - `npm run dev --workspace @octotree/cli` — Run the CLI via `ts-node-dev` without rebuilding.
