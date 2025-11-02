@@ -32,7 +32,10 @@ const formatBytes = (bytes: number): string => {
 };
 
 export const RadialTree: React.FC<RadialTreeProps> = ({ data, activeNodeId, onHover }) => {
-  const { root, radius, maxDepth } = useMemo(() => {
+  const startColor = { r: 191, g: 219, b: 254 }; // #bfdbfe
+  const endColor = { r: 29, g: 78, b: 216 }; // #1d4ed8
+
+  const { root, radius, maxDepth, maxFileSizeMap, sizePercentile90 } = useMemo(() => {
     const hierarchyRoot = hierarchy<TreeNode>(data, (node) => node.children);
     hierarchyRoot.sum((node) => (node.type === 'file' ? 1 : 0));
     const layout = tree<TreeNode>()
@@ -51,10 +54,42 @@ export const RadialTree: React.FC<RadialTreeProps> = ({ data, activeNodeId, onHo
       node.y = (node.depth / computedMaxDepth) * radius;
     });
 
+    const maxFileSizeMap = new Map<string, number>();
+    const fileSizes: number[] = [];
+
+    const computeMaxFileSize = (node: HierarchyPointNode<TreeNode>): number => {
+      let maxSize = node.data.type === 'file' ? node.data.size : 0;
+      if (node.data.type === 'file') {
+        fileSizes.push(node.data.size);
+      }
+      if (node.children) {
+        for (const child of node.children) {
+          maxSize = Math.max(maxSize, computeMaxFileSize(child));
+        }
+      }
+      maxFileSizeMap.set(node.data.id, maxSize);
+      return maxSize;
+    };
+
+    computeMaxFileSize(positionedRoot);
+
+    let sizePercentile90 = 0;
+    if (fileSizes.length > 0) {
+      fileSizes.sort((a, b) => a - b);
+      const index = Math.min(fileSizes.length - 1, Math.floor(fileSizes.length * 0.9));
+      sizePercentile90 = fileSizes[index];
+    }
+
+    if (sizePercentile90 === 0 && fileSizes.length > 0) {
+      sizePercentile90 = fileSizes[fileSizes.length - 1];
+    }
+
     return {
       root: positionedRoot,
       radius,
-      maxDepth: computedMaxDepth
+      maxDepth: computedMaxDepth,
+      maxFileSizeMap,
+      sizePercentile90
     };
   }, [data]);
 
@@ -125,19 +160,30 @@ export const RadialTree: React.FC<RadialTreeProps> = ({ data, activeNodeId, onHo
             {links.map((link) => {
               const isActive = activeBranchIds.has(link.target.data.id);
               const fileCount = link.target.value ?? (link.target.data.type === 'file' ? 1 : 0);
-              const normalized = maxFiles > 0 ? fileCount / maxFiles : 0;
-              const baseWidth = 0.6;
-              const widthRange = 6.4;
-              let strokeWidth = baseWidth + normalized * widthRange;
+              const normalizedCount = maxFiles > 0 ? fileCount / maxFiles : 0;
+              const baseWidth = 1;
+              const widthRange = 10;
+              let strokeWidth = baseWidth + normalizedCount * widthRange;
               if (isActive) {
                 strokeWidth += 0.6;
               }
+
+              const maxFileSize = maxFileSizeMap.get(link.target.data.id) ?? 0;
+              const denominator = sizePercentile90 > 0 ? sizePercentile90 : 1;
+              const normalizedSize = Math.min(maxFileSize / denominator, 1);
+              const interpolateChannel = (start: number, end: number) =>
+                Math.round(start + (end - start) * normalizedSize);
+              const strokeColor = `rgb(${interpolateChannel(startColor.r, endColor.r)}, ${interpolateChannel(
+                startColor.g,
+                endColor.g
+              )}, ${interpolateChannel(startColor.b, endColor.b)})`;
               return (
                 <path
                   key={link.target.data.id}
                   d={linkPath(link) ?? undefined}
                   className={isActive ? 'radial-tree__link radial-tree__link--active' : 'radial-tree__link'}
                   strokeWidth={strokeWidth}
+                  stroke={strokeColor}
                 />
               );
             })}
