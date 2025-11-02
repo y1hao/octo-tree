@@ -123,7 +123,6 @@ export const RadialTree: React.FC<RadialTreeProps> = ({ data }) => {
 
   const canvasPadding = 200;
   const canvasSize = radius * 2 + canvasPadding;
-  const displayWidth = canvasSize;
 
   const linkRenderData = useMemo(() => {
     return root
@@ -181,7 +180,7 @@ export const RadialTree: React.FC<RadialTreeProps> = ({ data }) => {
         viewBox={`0 0 ${canvasSize} ${canvasSize}`}
         role="img"
         aria-label="Radial file tree"
-        style={{ width: `${displayWidth}px`, maxWidth: '100%', height: 'auto' }}
+        preserveAspectRatio="xMidYMid meet"
       >
         <g transform={`translate(${canvasSize / 2}, ${canvasSize / 2})`}>
           <g className="radial-tree__levels" fill="none">

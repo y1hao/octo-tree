@@ -104,26 +104,12 @@ export const App: React.FC = () => {
     <div className="app">
       <main className="app__content">
         <aside className="app__sidebar" aria-live="polite">
-          <div className="sidebar__section">
-            <h2 className="sidebar__title">Repository</h2>
-            <div className="sidebar__body sidebar__body--stacked">
-              <span><strong>Name:</strong> {tree?.name ?? '—'}</span>
-              <span><strong>Total size:</strong> {tree ? formatBytes(tree.size) : '—'}</span>
-              <span><strong>Last sync:</strong> {formatTimestamp(lastUpdated)}</span>
-            </div>
-          </div>
-          <div className="sidebar__section">
-            <h2 className="sidebar__title">Statistics</h2>
-            <p className="sidebar__body">
-              Max depth: {aggregateStats ? aggregateStats.maxDepth : '—'}
-            </p>
-            <p className="sidebar__body">
-              Nodes: {aggregateStats ? aggregateStats.nodes : '—'} total
-            </p>
-            <p className="sidebar__body">
+          <div className="sidebar__section sidebar__section--stacked">
+            <span className="sidebar__heading">{tree?.name ?? '—'}</span>
+            <span className="sidebar__line">
               Directories: {aggregateStats ? aggregateStats.directories : '—'} · Files:{' '}
               {aggregateStats ? aggregateStats.files : '—'}
-            </p>
+            </span>
           </div>
         </aside>
 
