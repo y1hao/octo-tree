@@ -107,8 +107,8 @@ const createApp = (
   const app = express();
   app.use(express.json());
 
-  const cache = new Map<string, CacheEntry>();
   const buildPromises = new Map<string, Promise<TreeNode>>();
+  let defaultRefLastUpdated = 0;
 
   const resolveRef = (requestedRef?: string): {
     key: string;
@@ -127,11 +127,6 @@ const createApp = (
 
   const buildTreeForRef = async (requestedRef?: string): Promise<CacheEntry> => {
     const { key, refForBuild, allowFallback } = resolveRef(requestedRef);
-    const existing = cache.get(key);
-    if (existing) {
-      return existing;
-    }
-
     let promise = buildPromises.get(key);
     if (!promise) {
       promise = buildRepositoryTree({
@@ -155,13 +150,14 @@ const createApp = (
       lastUpdated: Date.now(),
       gitStats
     };
-    cache.set(key, entry);
+    if (key === defaultRef) {
+      defaultRefLastUpdated = entry.lastUpdated;
+    }
     return entry;
   };
 
   const refreshTreeForRef = async (requestedRef?: string): Promise<CacheEntry> => {
     const { key } = resolveRef(requestedRef);
-    cache.delete(key);
     buildPromises.delete(key);
     return buildTreeForRef(requestedRef);
   };
@@ -179,11 +175,10 @@ const createApp = (
   };
 
   app.get('/health', (_req, res) => {
-    const defaultEntry = cache.get(defaultRef);
     res.json({
       status: 'ok',
       repoPath,
-      lastUpdated: defaultEntry?.lastUpdated ?? 0
+      lastUpdated: defaultRefLastUpdated
     });
   });
 
