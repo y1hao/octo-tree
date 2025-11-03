@@ -161,14 +161,15 @@ const captureScreenshot = async ({
 
   try {
     const portPreference = requestedPort === 0 ? 0 : requestedPort || DEFAULT_PORT;
-    server = await startServer({ port: portPreference, repoPath, ref });
+    server = await startServer({ port: portPreference, repoPath, ref, silent: true });
     const port = portPreference === 0 ? getServerPort(server) : portPreference;
-    const url = `http://localhost:${port}`;
+    const urlBase = `http://localhost:${port}`;
+    const targetUrl = ref ? `${urlBase}/?ref=${encodeURIComponent(ref)}` : urlBase;
 
     browser = await puppeteer.launch({ headless: true });
     const page = await browser.newPage();
     await page.setViewport({ width, height, deviceScaleFactor: DEFAULT_DEVICE_SCALE });
-    await page.goto(url, { waitUntil: 'networkidle0' });
+    await page.goto(targetUrl, { waitUntil: 'networkidle0' });
     await page.waitForSelector('.radial-tree svg', { timeout: 20000 });
     await page.waitForFunction(
       () => document.querySelectorAll('.radial-tree__link').length > 0,
@@ -385,20 +386,33 @@ const videoAction = async (options: VideoOptions) => {
     const videoPath = ensureMp4Path(outputPath);
     let success = false;
 
+    const portPreference = parsedPort === 0 ? 0 : parsedPort || DEFAULT_PORT;
+    let server: http.Server | null = null;
+    let browser: Browser | null = null;
+
     try {
       await fs.mkdir(path.dirname(videoPath), { recursive: true });
+
+      server = await startServer({ port: portPreference, repoPath, silent: true });
+      const port = portPreference === 0 ? getServerPort(server) : portPreference;
+      const baseUrl = `http://localhost:${port}`;
+
+      browser = await puppeteer.launch({ headless: true });
+      const page = await browser.newPage();
+      await page.setViewport({ width, height, deviceScaleFactor: DEFAULT_DEVICE_SCALE });
+
       for (let index = 0; index < totalFrames; index += 1) {
         const commit = commitsToRender[index];
+        const frameUrl = `${baseUrl}/?ref=${encodeURIComponent(commit)}`;
+        await page.goto(frameUrl, { waitUntil: 'networkidle0' });
+        await page.waitForSelector('.radial-tree svg', { timeout: 20000 });
+        await page.waitForFunction(
+          () => document.querySelectorAll('.radial-tree__link').length > 0,
+          { timeout: 20000 }
+        );
+
         const frameFile = path.join(tempDir, `frame-${String(index + 1).padStart(6, '0')}.png`);
-        await captureScreenshot({
-          repoPath,
-          ref: commit,
-          width,
-          height,
-          requestedPort: parsedPort,
-          outputPath: frameFile,
-          silent: true
-        });
+        await page.screenshot({ path: frameFile as `${string}.png`, type: 'png', fullPage: false });
         console.log(`Captured frame ${index + 1}/${totalFrames} (${commit.slice(0, 7)})`);
       }
 
@@ -416,6 +430,7 @@ const videoAction = async (options: VideoOptions) => {
       console.log(`Saved video (${totalFrames} frames @ ${fpsValue} fps) to ${videoPath}`);
       success = true;
     } finally {
+      await Promise.allSettled([browser?.close(), closeServer(server)]);
       await fs.rm(tempDir, { recursive: true, force: true }).catch(() => undefined);
     }
 

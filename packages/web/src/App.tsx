@@ -31,8 +31,27 @@ const formatBytes = (bytes: number): string => {
   return `${value.toFixed(value >= 10 || magnitude === 0 ? 0 : 1)} ${units[magnitude]}`;
 };
 
+const appendRefQuery = (endpoint: string): string => {
+  if (typeof window === 'undefined') {
+    return endpoint;
+  }
+  try {
+    const url = new URL(window.location.href);
+    const ref = url.searchParams.get('ref');
+    if (!ref) {
+      return endpoint;
+    }
+    const separator = endpoint.includes('?') ? '&' : '?';
+    return `${endpoint}${separator}ref=${encodeURIComponent(ref)}`;
+  } catch (error) {
+    console.warn('Failed to append ref query parameter:', error);
+    return endpoint;
+  }
+};
+
 const fetchTree = async (endpoint: string, init?: RequestInit): Promise<TreeResponse> => {
-  const response = await fetch(endpoint, {
+  const url = appendRefQuery(endpoint);
+  const response = await fetch(url, {
     headers: { 'Content-Type': 'application/json' },
     ...init
   });

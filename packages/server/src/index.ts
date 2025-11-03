@@ -13,12 +13,19 @@ export interface ServerOptions {
   port?: number;
   repoPath: string;
   ref?: string;
+  silent?: boolean;
+}
+
+interface CacheEntry {
+  tree: TreeNode;
+  lastUpdated: number;
+  gitStats: GitStats | null;
 }
 
 interface AppInstance {
   app: express.Express;
-  getTree: () => Promise<TreeNode>;
-  refreshTree: () => Promise<TreeNode>;
+  getTree: (ref?: string) => Promise<CacheEntry>;
+  refreshTree: (ref?: string) => Promise<CacheEntry>;
 }
 
 interface GitStats {
@@ -94,55 +101,96 @@ const resolveStaticAssets = (): { root: string; indexPath: string } => {
 
 const createApp = (
   repoPath: string,
-  gitRef: string,
+  defaultRef: string,
   allowFallbackToWorkingTree: boolean
 ): AppInstance => {
   const app = express();
   app.use(express.json());
 
-  let cachedTree: TreeNode | null = null;
-  let lastUpdated = 0;
-  let buildPromise: Promise<TreeNode> | null = null;
-  let gitStats: GitStats | null = null;
+  const cache = new Map<string, CacheEntry>();
+  const buildPromises = new Map<string, Promise<TreeNode>>();
 
-  const runBuild = async (): Promise<TreeNode> => {
-    const tree = await buildRepositoryTree({
-      repoPath,
-      ref: gitRef,
-      allowFallbackToWorkingTree
-    });
-    cachedTree = tree;
-    lastUpdated = Date.now();
-    gitStats = await collectGitStats(repoPath, gitRef);
-    return tree;
+  const resolveRef = (requestedRef?: string): {
+    key: string;
+    refForBuild: string;
+    allowFallback: boolean;
+  } => {
+    if (requestedRef && requestedRef.length > 0) {
+      return { key: requestedRef, refForBuild: requestedRef, allowFallback: false };
+    }
+    return {
+      key: defaultRef,
+      refForBuild: defaultRef,
+      allowFallback: allowFallbackToWorkingTree
+    };
   };
 
-  const refreshTree = async (): Promise<TreeNode> => {
-    if (!buildPromise) {
-      buildPromise = runBuild().finally(() => {
-        buildPromise = null;
+  const buildTreeForRef = async (requestedRef?: string): Promise<CacheEntry> => {
+    const { key, refForBuild, allowFallback } = resolveRef(requestedRef);
+    const existing = cache.get(key);
+    if (existing) {
+      return existing;
+    }
+
+    let promise = buildPromises.get(key);
+    if (!promise) {
+      promise = buildRepositoryTree({
+        repoPath,
+        ref: refForBuild,
+        allowFallbackToWorkingTree: allowFallback
       });
+      buildPromises.set(key, promise);
     }
-    return buildPromise;
+
+    let tree: TreeNode;
+    try {
+      tree = await promise;
+    } finally {
+      buildPromises.delete(key);
+    }
+
+    const gitStats = await collectGitStats(repoPath, refForBuild);
+    const entry: CacheEntry = {
+      tree,
+      lastUpdated: Date.now(),
+      gitStats
+    };
+    cache.set(key, entry);
+    return entry;
   };
 
-  const getTree = async (): Promise<TreeNode> => {
-    if (cachedTree) {
-      return cachedTree;
+  const refreshTreeForRef = async (requestedRef?: string): Promise<CacheEntry> => {
+    const { key } = resolveRef(requestedRef);
+    cache.delete(key);
+    buildPromises.delete(key);
+    return buildTreeForRef(requestedRef);
+  };
+
+  const getCacheEntry = async (requestedRef?: string): Promise<CacheEntry> => {
+    return buildTreeForRef(requestedRef);
+  };
+
+  const extractRefParam = (req: Request): string | undefined => {
+    const { ref } = req.query;
+    if (typeof ref === 'string' && ref.trim().length > 0) {
+      return ref.trim();
     }
-    return refreshTree();
+    return undefined;
   };
 
   app.get('/health', (_req, res) => {
-    res.json({ status: 'ok', repoPath, lastUpdated });
+    const defaultEntry = cache.get(defaultRef);
+    res.json({
+      status: 'ok',
+      repoPath,
+      lastUpdated: defaultEntry?.lastUpdated ?? 0
+    });
   });
 
-  app.get('/api/tree', async (_req: Request, res: Response) => {
+  app.get('/api/tree', async (req: Request, res: Response) => {
+    const requestedRef = extractRefParam(req);
     try {
-      const tree = await getTree();
-      if (!gitStats) {
-        gitStats = await collectGitStats(repoPath, gitRef);
-      }
+      const { tree, lastUpdated, gitStats } = await getCacheEntry(requestedRef);
       res.json({ tree, lastUpdated, gitStats });
     } catch (error) {
       if (error instanceof GitRepositoryError) {
@@ -154,12 +202,10 @@ const createApp = (
     }
   });
 
-  app.post('/api/tree/refresh', async (_req: Request, res: Response) => {
+  app.post('/api/tree/refresh', async (req: Request, res: Response) => {
+    const requestedRef = extractRefParam(req);
     try {
-      const tree = await refreshTree();
-      if (!gitStats) {
-        gitStats = await collectGitStats(repoPath, gitRef);
-      }
+      const { tree, lastUpdated, gitStats } = await refreshTreeForRef(requestedRef);
       res.json({ tree, lastUpdated, gitStats });
     } catch (error) {
       if (error instanceof GitRepositoryError) {
@@ -188,13 +234,18 @@ const createApp = (
     }
   });
 
-  return { app, getTree, refreshTree };
+  return {
+    app,
+    getTree: getCacheEntry,
+    refreshTree: refreshTreeForRef
+  };
 };
 
 export const startServer = async ({
   port = 3000,
   repoPath,
-  ref
+  ref,
+  silent = false
 }: ServerOptions): Promise<http.Server> => {
   if (!repoPath) {
     throw new Error('Server requires a repository path');
@@ -203,11 +254,13 @@ export const startServer = async ({
   const gitRef = ref ?? 'HEAD';
   const allowFallbackToWorkingTree = ref == null;
   const { app, refreshTree } = createApp(repoPath, gitRef, allowFallbackToWorkingTree);
-  await refreshTree();
+  await refreshTree(gitRef);
 
   return new Promise((resolve, reject) => {
     const server = app.listen(port, () => {
-      console.log(`Server listening on http://localhost:${port}`);
+      if (!silent) {
+        console.log(`Server listening on http://localhost:${port}`);
+      }
       resolve(server);
     });
     server.on('error', (error) => {
