@@ -4,9 +4,10 @@ Radial visualization tool for exploring git-tracked files in any repository. The
 
 | | | |
 |---|---|---|
-| ![](./screenshots/codex.png) | ![](./screenshots/django.png) | ![](./screenshots/karpenter.png) |
-| ![](./screenshots/kubernetes.png) | ![](./screenshots/langchain.png) | ![](./screenshots/next.png) |
-| ![](./screenshots/react.png) | ![](./screenshots/sentry.png) | ![](./screenshots/typescript.png) |
+| ![](./screenshots/bazel.png) | ![](./screenshots/cobra.png) | ![](./screenshots/codex.png) |
+| ![](./screenshots/django.png) | ![](./screenshots/karpenter.png) | ![](./screenshots/kubernetes.png) |
+| ![](./screenshots/langchain.png) | ![](./screenshots/next.png) | ![](./screenshots/react.png) |
+| ![](./screenshots/redis.png) | ![](./screenshots/sentry.png) | ![](./screenshots/typescript.png) |
 
 ## Workspace Layout
 - `packages/core` — Git-aware tree builder and shared types.
