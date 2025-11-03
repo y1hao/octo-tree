@@ -52,7 +52,9 @@ body {
   flex: 1;
   padding: 2rem;
   display: grid;
-  grid-template-columns: minmax(0, 1.5fr) minmax(0, 3.5fr);
+  grid-template-columns: auto auto;
+  justify-content: center;
+  align-items: center;
   gap: 1.5rem;
   min-height: 0;
   height: 100%;
@@ -208,6 +210,8 @@ body {
   .app__content {
     grid-template-columns: minmax(0, 1fr);
     height: auto;
+    justify-content: stretch;
+    align-items: start;
   }
 
   .app__visualization {

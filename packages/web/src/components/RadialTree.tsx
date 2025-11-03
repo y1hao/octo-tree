@@ -36,13 +36,13 @@ const formatBytes = (bytes: number): string => {
 };
 
 export const RadialTree: React.FC<RadialTreeProps> = ({ data }) => {
-  const startColor = { r: 21, g: 94, b: 51 }; // #155e33
-  const endColor = { r: 209, g: 250, b: 229 }; // #d1fae5
+  const startColor = { r: 21, g: 94, b: 51 }; // #015625
+  const endColor = { r: 209, g: 250, b: 229 }; // #e2fef0
 
   const containerRef = useRef<HTMLDivElement | null>(null);
   const [tooltip, setTooltip] = useState<TooltipState | null>(null);
 
-  const { root, radius, maxDepth, maxFileSizeMap, sizePercentile90 } = useMemo(() => {
+  const { root, radius, maxDepth, maxFileSizeMap, sizePercentile: sizePercentile } = useMemo(() => {
     const hierarchyRoot = hierarchy<TreeNode>(data, (node) => node.children);
     hierarchyRoot.sum((node) => (node.type === 'file' ? 1 : 0));
     const layout = tree<TreeNode>()
@@ -80,15 +80,15 @@ export const RadialTree: React.FC<RadialTreeProps> = ({ data }) => {
 
     computeMaxFileSize(positionedRoot);
 
-    let sizePercentile95 = 0;
+    let sizePercentile = 0;
     if (fileSizes.length > 0) {
       fileSizes.sort((a, b) => a - b);
-      const index = Math.min(fileSizes.length - 1, Math.floor(fileSizes.length * 0.95));
-      sizePercentile95 = fileSizes[index];
+      const index = Math.min(fileSizes.length - 1, Math.floor(fileSizes.length * 0.98));
+      sizePercentile = fileSizes[index];
     }
 
-    if (sizePercentile95 === 0 && fileSizes.length > 0) {
-      sizePercentile95 = fileSizes[fileSizes.length - 1];
+    if (sizePercentile === 0 && fileSizes.length > 0) {
+      sizePercentile = fileSizes[fileSizes.length - 1];
     }
 
     return {
@@ -96,7 +96,7 @@ export const RadialTree: React.FC<RadialTreeProps> = ({ data }) => {
       radius,
       maxDepth: computedMaxDepth,
       maxFileSizeMap,
-      sizePercentile90: sizePercentile95
+      sizePercentile: sizePercentile
     };
   }, [data]);
 
@@ -130,12 +130,12 @@ export const RadialTree: React.FC<RadialTreeProps> = ({ data }) => {
       .map((link) => {
         const fileCount = link.target.value ?? (link.target.data.type === 'file' ? 1 : 0);
         const normalizedCount = maxFiles > 0 ? fileCount / maxFiles : 0;
-        const baseWidth = 0.6;
-        const widthRange = 6.4;
+        const baseWidth = 2;
+        const widthRange = 20;
         const strokeWidth = baseWidth + normalizedCount * widthRange;
 
         const maxFileSize = maxFileSizeMap.get(link.target.data.id) ?? 0;
-        const denominator = sizePercentile90 > 0 ? sizePercentile90 : 1;
+        const denominator = sizePercentile > 0 ? sizePercentile : 1;
         const normalizedSize = Math.min(maxFileSize / denominator, 1);
         const interpolateChannel = (start: number, end: number) =>
           Math.round(start + (end - start) * normalizedSize);
@@ -152,7 +152,7 @@ export const RadialTree: React.FC<RadialTreeProps> = ({ data }) => {
         };
       })
       .sort((a, b) => a.normalizedSize - b.normalizedSize);
-  }, [root, maxFiles, maxFileSizeMap, sizePercentile90, startColor, endColor]);
+  }, [root, maxFiles, maxFileSizeMap, sizePercentile, startColor, endColor]);
 
   const handleLinkHover = useCallback(
     (event: React.MouseEvent<SVGPathElement>, node: HierarchyPointNode<TreeNode>) => {
