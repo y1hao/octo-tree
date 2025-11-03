@@ -36,6 +36,18 @@ Options:
 
 When the CLI reports the server URL, open it in your browser to explore the radial tree. The visualization fetches `/api/tree` (gitignore-aware), displays hover tooltips for branch metadata, and you can trigger a rebuild any time with `POST /api/tree/refresh`.
 
+## Capture a Screenshot
+```bash
+node packages/cli/dist/index.js screenshot --repo /path/to/git/repo --output octo-tree.png
+```
+
+Options:
+- `--repo` defaults to the current working directory.
+- `--output` defaults to `octo-tree.png` (auto-appends `.png` if missing).
+- `--port` defaults to `0`, so an open port is allocated automatically.
+
+The generated PNG uses a 4:3 aspect ratio with a 1920px width (1440px height).
+
 Large repositories are supported—the tree builder streams `git ls-files` output to avoid buffer limits.
 
 Branch thickness reflects how many files live inside a directory, branch color lightens with the largest descendant file size (capped at the 90th percentile), and the sidebar highlights directories/files alongside latest commit time and commit count.
