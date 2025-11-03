@@ -18,6 +18,8 @@ const DEFAULT_WIDTH = 1440;
 const DEFAULT_ASPECT_X = 4;
 const DEFAULT_ASPECT_Y = 3;
 const DEFAULT_DEVICE_SCALE = 2;
+const VIDEO_NAVIGATION_TIMEOUT_MS = 120_000;
+const VIDEO_WAIT_TIMEOUT_MS = 120_000;
 
 const ensurePngPath = (outputPath: string): `${string}.png` => {
   if (outputPath.toLowerCase().endsWith('.png')) {
@@ -461,15 +463,20 @@ const videoAction = async (options: VideoOptions) => {
       browser = await puppeteer.launch({ headless: true });
       const page = await browser.newPage();
       await page.setViewport({ width, height, deviceScaleFactor: DEFAULT_DEVICE_SCALE });
+      page.setDefaultNavigationTimeout(VIDEO_NAVIGATION_TIMEOUT_MS);
+      page.setDefaultTimeout(VIDEO_WAIT_TIMEOUT_MS);
 
       for (let index = 0; index < totalFrames; index += 1) {
         const commit = commitsToRender[index];
         const frameUrl = `${baseUrl}/?ref=${encodeURIComponent(commit)}`;
-        await page.goto(frameUrl, { waitUntil: 'networkidle0' });
-        await page.waitForSelector('.radial-tree svg', { timeout: 20000 });
+        await page.goto(frameUrl, {
+          waitUntil: 'networkidle0',
+          timeout: VIDEO_NAVIGATION_TIMEOUT_MS
+        });
+        await page.waitForSelector('.radial-tree svg', { timeout: VIDEO_WAIT_TIMEOUT_MS });
         await page.waitForFunction(
           () => document.querySelectorAll('.radial-tree__link').length > 0,
-          { timeout: 20000 }
+          { timeout: VIDEO_WAIT_TIMEOUT_MS }
         );
 
         const frameFile = path.join(tempDir, `frame-${String(index + 1).padStart(6, '0')}.png`);
