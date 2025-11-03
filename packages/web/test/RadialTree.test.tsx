@@ -57,6 +57,16 @@ describe('RadialTree', () => {
     expect(links).toHaveLength(3);
   });
 
+  it('limits rendered depth when a level override is provided', () => {
+    const { container } = render(<RadialTree data={buildTree()} level={1} />);
+
+    const links = container.querySelectorAll('.radial-tree__link');
+    expect(links).toHaveLength(2);
+
+    const levels = container.querySelectorAll('.radial-tree__levels circle');
+    expect(levels).toHaveLength(2);
+  });
+
   it('displays tooltip information for files and directories', () => {
     const { container } = render(<RadialTree data={buildTree()} />);
 

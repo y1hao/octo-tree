@@ -10,6 +10,7 @@ import type { TreeNode } from '../types';
 
 interface RadialTreeProps {
   data: TreeNode;
+  level?: number | null;
 }
 
 interface TooltipState {
@@ -35,12 +36,22 @@ export const formatBytes = (bytes: number): string => {
   return `${value.toFixed(value >= 10 || magnitude === 0 ? 0 : 1)} ${units[magnitude]}`;
 };
 
-export const RadialTree: React.FC<RadialTreeProps> = ({ data }) => {
+export const RadialTree: React.FC<RadialTreeProps> = ({ data, level }) => {
   const startColor = { r: 21, g: 94, b: 51 }; // #015625
   const endColor = { r: 209, g: 250, b: 229 }; // #e2fef0
 
   const containerRef = useRef<HTMLDivElement | null>(null);
   const [tooltip, setTooltip] = useState<TooltipState | null>(null);
+
+  const normalizedLevel = useMemo(() => {
+    if (typeof level !== 'number') {
+      return null;
+    }
+    if (!Number.isFinite(level) || level <= 0) {
+      return null;
+    }
+    return Math.round(level);
+  }, [level]);
 
   const { root, radius, maxDepth, maxFileSizeMap, sizePercentile: sizePercentile } = useMemo(() => {
     const hierarchyRoot = hierarchy<TreeNode>(data, (node) => node.children);
@@ -51,14 +62,16 @@ export const RadialTree: React.FC<RadialTreeProps> = ({ data }) => {
     const positionedRoot = layout(hierarchyRoot);
 
     const computedMaxDepth = Math.max(1, positionedRoot.height);
+    const effectiveMaxDepth = Math.max(1, normalizedLevel ?? computedMaxDepth);
     const baseRadius = 160;
     const depthSpacing = 110;
-    const computedRadius = baseRadius + computedMaxDepth * depthSpacing;
+    const computedRadius = baseRadius + effectiveMaxDepth * depthSpacing;
     const maxRadius = 800;
     const radius = Math.min(computedRadius, maxRadius);
 
     positionedRoot.each((node) => {
-      node.y = (node.depth / computedMaxDepth) * radius;
+      const depthForLayout = Math.min(node.depth, effectiveMaxDepth);
+      node.y = (depthForLayout / effectiveMaxDepth) * radius;
     });
 
     const maxFileSizeMap = new Map<string, number>();
@@ -94,22 +107,25 @@ export const RadialTree: React.FC<RadialTreeProps> = ({ data }) => {
     return {
       root: positionedRoot,
       radius,
-      maxDepth: computedMaxDepth,
+      maxDepth: effectiveMaxDepth,
       maxFileSizeMap,
       sizePercentile: sizePercentile
     };
-  }, [data]);
+  }, [data, normalizedLevel]);
 
   const maxFiles = useMemo(() => {
     let max = 0;
     for (const node of root.descendants()) {
+      if (node.depth > maxDepth) {
+        continue;
+      }
       const files = node.value ?? (node.data.type === 'file' ? 1 : 0);
       if (files > max) {
         max = files;
       }
     }
     return max;
-  }, [root]);
+  }, [root, maxDepth]);
 
   const linkPath = useMemo(() => {
     return linkRadial<HierarchyPointLink<TreeNode>, HierarchyPointNode<TreeNode>>()
@@ -127,6 +143,7 @@ export const RadialTree: React.FC<RadialTreeProps> = ({ data }) => {
   const linkRenderData = useMemo(() => {
     return root
       .links()
+      .filter((link) => link.target.depth <= maxDepth)
       .map((link) => {
         const fileCount = link.target.value ?? (link.target.data.type === 'file' ? 1 : 0);
         const normalizedCount = maxFiles > 0 ? fileCount / maxFiles : 0;
@@ -152,7 +169,7 @@ export const RadialTree: React.FC<RadialTreeProps> = ({ data }) => {
         };
       })
       .sort((a, b) => a.normalizedSize - b.normalizedSize);
-  }, [root, maxFiles, maxFileSizeMap, sizePercentile, startColor, endColor]);
+  }, [root, maxDepth, maxFiles, maxFileSizeMap, sizePercentile, startColor, endColor]);
 
   const handleLinkHover = useCallback(
     (event: React.MouseEvent<SVGPathElement>, node: HierarchyPointNode<TreeNode>) => {

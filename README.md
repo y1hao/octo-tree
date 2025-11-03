@@ -48,6 +48,7 @@ Options:
 - `--repo` defaults to the current working directory.
 - `--port` defaults to `3000`.
 - `--ref` defaults to `HEAD` (any valid git ref/commit SHA).
+- `--level` fixes the number of concentric levels in the visualization; branches deeper than this stop at the outer ring.
 
 When the CLI reports the server URL, open it in your browser to explore the radial tree. The visualization fetches `/api/tree` (gitignore-aware), displays hover tooltips for branch metadata, and you can trigger a rebuild any time with `POST /api/tree/refresh`.
 
@@ -63,6 +64,7 @@ Options:
 - `--width` defaults to `1440` CSS pixels (3/4 of the serve viewport width).
 - `--aspect` defaults to `4:3` (format `x:y`).
 - `--ref` defaults to `HEAD` (any valid git ref/commit SHA).
+- `--level` fixes the number of concentric levels in the SVG output; deeper branches terminate at the outer ring.
 
 The PNG is rendered at the requested CSS width/height with a device scale factor of `2`, so the output bitmap is twice as dense as the viewport dimensions.
 
@@ -79,6 +81,7 @@ Options:
 - `--fps` defaults to `10` frames per second.
 - `--max-seconds` defaults to `60`; frames are uniformly sampled to keep within `fps × max-seconds`.
 - `--from` / `--to` bound the commits considered (1-indexed, inclusive). If omitted they default to the first and last commit respectively, while the UI still shows cumulative commit counts.
+- `--level` fixes the number of concentric levels in every captured frame; deeper branches terminate at the outer ring.
 
 The command captures PNG frames for each sampled commit (oldest → newest) and stitches them into an MP4 using the bundled ffmpeg binary.
 

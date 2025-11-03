@@ -60,6 +60,27 @@ export const App: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [gitStats, setGitStats] = useState<GitStats | null>(null);
 
+  const levelOverride = useMemo(() => {
+    if (typeof window === 'undefined') {
+      return null;
+    }
+    try {
+      const params = new URLSearchParams(window.location.search);
+      const rawLevel = params.get('level');
+      if (!rawLevel) {
+        return null;
+      }
+      const parsed = Number(rawLevel);
+      if (!Number.isInteger(parsed) || parsed <= 0) {
+        return null;
+      }
+      return parsed;
+    } catch (error) {
+      console.warn('Failed to parse level query parameter:', error);
+      return null;
+    }
+  }, []);
+
   const loadTree = useCallback(async () => {
     setLoading(true);
     setError(null);
@@ -129,7 +150,7 @@ export const App: React.FC = () => {
         <section className="app__visualization">
           {loading && <p>Loading repository tree…</p>}
           {error && !loading && <p role="alert">{error}</p>}
-          {!loading && !error && tree && <RadialTree data={tree} />}
+          {!loading && !error && tree && <RadialTree data={tree} level={levelOverride} />}
         </section>
       </main>
     </div>

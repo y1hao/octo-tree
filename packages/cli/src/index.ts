@@ -39,6 +39,7 @@ interface ServeOptions {
   repo?: string;
   port?: string;
   ref?: string;
+  level?: string;
 }
 
 interface ScreenshotOptions {
@@ -48,6 +49,7 @@ interface ScreenshotOptions {
   width?: string;
   aspect?: string;
   ref?: string;
+  level?: string;
 }
 
 interface VideoOptions {
@@ -60,7 +62,24 @@ interface VideoOptions {
   maxSeconds?: string;
   from?: string;
   to?: string;
+  level?: string;
 }
+
+interface ClientUrlOptions {
+  ref?: string;
+  level?: number;
+}
+
+export const buildClientUrl = (baseUrl: string, { ref, level }: ClientUrlOptions): string => {
+  const targetUrl = new URL(baseUrl);
+  if (ref) {
+    targetUrl.searchParams.set('ref', ref);
+  }
+  if (typeof level === 'number') {
+    targetUrl.searchParams.set('level', level.toString());
+  }
+  return targetUrl.toString();
+};
 
 const serveAction = async (options: ServeOptions) => {
   const port = Number(options.port ?? DEFAULT_PORT.toString());
@@ -73,10 +92,17 @@ const serveAction = async (options: ServeOptions) => {
   const repoPath = path.resolve(options.repo ?? process.cwd());
   const requestedRef = options.ref;
   const ref = requestedRef ?? 'HEAD';
+
+  const levelResult = parseLevel(options.level);
+  if (levelResult.error) {
+    console.error(levelResult.error);
+    process.exitCode = 1;
+    return;
+  }
   console.log(`Launching visualization for repo: ${repoPath} at ref ${ref}`);
 
   try {
-    await startServer({ port, repoPath, ref: requestedRef });
+    await startServer({ port, repoPath, ref: requestedRef, level: levelResult.value });
   } catch (error) {
     if (error instanceof GitRepositoryError) {
       console.error(error.message);
@@ -153,6 +179,19 @@ export const parseCommitBound = (
   return { value: parsed };
 };
 
+export const parseLevel = (rawValue: string | undefined): { value?: number; error?: string } => {
+  if (rawValue == null) {
+    return {};
+  }
+
+  const parsed = Number(rawValue);
+  if (!Number.isInteger(parsed) || parsed <= 0) {
+    return { error: '--level must be a positive integer' };
+  }
+
+  return { value: parsed };
+};
+
 interface CaptureOptions {
   repoPath: string;
   ref?: string;
@@ -161,6 +200,7 @@ interface CaptureOptions {
   requestedPort: number;
   outputPath: string;
   silent?: boolean;
+  level?: number;
 }
 
 const captureScreenshot = async ({
@@ -170,7 +210,8 @@ const captureScreenshot = async ({
   height,
   requestedPort,
   outputPath,
-  silent = false
+  silent = false,
+  level
 }: CaptureOptions): Promise<string> => {
   const pngPath = ensurePngPath(outputPath);
 
@@ -179,10 +220,10 @@ const captureScreenshot = async ({
 
   try {
     const portPreference = requestedPort === 0 ? 0 : requestedPort || DEFAULT_PORT;
-    server = await startServer({ port: portPreference, repoPath, ref, silent: true });
+    server = await startServer({ port: portPreference, repoPath, ref, silent: true, level });
     const port = portPreference === 0 ? getServerPort(server) : portPreference;
     const urlBase = `http://localhost:${port}`;
-    const targetUrl = ref ? `${urlBase}/?ref=${encodeURIComponent(ref)}` : urlBase;
+    const targetUrl = buildClientUrl(urlBase, { ref, level });
 
     browser = await puppeteer.launch({ headless: true });
     const page = await browser.newPage();
@@ -320,6 +361,13 @@ const screenshotAction = async (options: ScreenshotOptions) => {
     return;
   }
 
+  const levelResult = parseLevel(options.level);
+  if (levelResult.error) {
+    console.error(levelResult.error);
+    process.exitCode = 1;
+    return;
+  }
+
   const height = Math.round((width * aspect.y) / aspect.x);
 
   try {
@@ -330,7 +378,8 @@ const screenshotAction = async (options: ScreenshotOptions) => {
       height,
       requestedPort: parsedPort,
       outputPath,
-      silent: false
+      silent: false,
+      level: levelResult.value
     });
   } catch (error) {
     if (error instanceof GitRepositoryError) {
@@ -400,6 +449,13 @@ const videoAction = async (options: VideoOptions) => {
     return;
   }
 
+  const levelResult = parseLevel(options.level);
+  if (levelResult.error) {
+    console.error(levelResult.error);
+    process.exitCode = 1;
+    return;
+  }
+
   try {
     const commits = await listCommitsForBranch(repoPath);
     if (commits.length === 0) {
@@ -456,7 +512,7 @@ const videoAction = async (options: VideoOptions) => {
     try {
       await fs.mkdir(path.dirname(videoPath), { recursive: true });
 
-      server = await startServer({ port: portPreference, repoPath, silent: true });
+    server = await startServer({ port: portPreference, repoPath, silent: true, level: levelResult.value });
       const port = portPreference === 0 ? getServerPort(server) : portPreference;
       const baseUrl = `http://localhost:${port}`;
 
@@ -475,7 +531,7 @@ const videoAction = async (options: VideoOptions) => {
         const frameFile = path.join(tempDir, `frame-${String(frameNumber).padStart(6, '0')}.png`);
 
         try {
-          const frameUrl = `${baseUrl}/?ref=${encodeURIComponent(commit)}`;
+          const frameUrl = buildClientUrl(baseUrl, { ref: commit, level: levelResult.value });
           await page.goto(frameUrl, {
             waitUntil: 'networkidle0',
             timeout: VIDEO_NAVIGATION_TIMEOUT_MS
@@ -552,6 +608,7 @@ program
   .option('-r, --repo <path>', 'Path to the repository to visualize', process.cwd())
   .option('-p, --port <number>', 'Port to run the web server on', DEFAULT_PORT.toString())
   .option('--ref <git-ref>', 'Git ref (commit SHA, tag, etc.) to visualize')
+  .option('--level <number>', 'Number of levels to display in the visualization')
   .action(async (options) => {
     await serveAction(options as ServeOptions);
   });
@@ -569,6 +626,7 @@ program
     `${DEFAULT_ASPECT_X}:${DEFAULT_ASPECT_Y}`
   )
   .option('--ref <git-ref>', 'Git ref (commit SHA, tag, etc.) to visualize')
+  .option('--level <number>', 'Number of levels to display in the visualization')
   .action(async (options) => {
     await screenshotAction(options as ScreenshotOptions);
   });
@@ -589,6 +647,7 @@ program
   .option('--max-seconds <number>', 'Maximum length of the video in seconds', '60')
   .option('--from <number>', 'Start rendering from this commit index (1-indexed)')
   .option('--to <number>', 'Stop rendering at this commit index (1-indexed)')
+  .option('--level <number>', 'Number of levels to display in the visualization')
   .action(async (options) => {
     await videoAction(options as VideoOptions);
   });

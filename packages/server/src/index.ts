@@ -1,4 +1,4 @@
-import express, { Request, Response } from 'express';
+import express, { Request, Response, type RequestHandler } from 'express';
 import path from 'path';
 import http from 'http';
 import { existsSync } from 'fs';
@@ -14,6 +14,7 @@ export interface ServerOptions {
   repoPath: string;
   ref?: string;
   silent?: boolean;
+  level?: number;
 }
 
 interface CacheEntry {
@@ -37,6 +38,29 @@ interface AppDependencies {
   buildRepositoryTreeFn?: typeof buildRepositoryTree;
   collectGitStatsFn?: typeof collectGitStats;
 }
+
+interface CreateAppOptions {
+  dependencies?: AppDependencies;
+  level?: number;
+}
+
+const createLevelRedirectMiddleware = (level: number): RequestHandler => {
+  return (req, res, next) => {
+    if (req.method !== 'GET' || req.path !== '/' || req.query.level != null) {
+      next();
+      return;
+    }
+
+    try {
+      const url = new URL(req.originalUrl ?? '/', 'http://localhost');
+      url.searchParams.set('level', level.toString());
+      res.redirect(url.pathname + url.search);
+    } catch (error) {
+      console.warn('Failed to apply level redirect:', error);
+      res.redirect(`/?level=${level}`);
+    }
+  };
+};
 
 const runGitCommand = (repoPath: string, args: string[]): Promise<string> => {
   return new Promise((resolve, reject) => {
@@ -108,13 +132,15 @@ const createApp = (
   repoPath: string,
   defaultRef: string,
   allowFallbackToWorkingTree: boolean,
-  dependencies: AppDependencies = {}
+  options: CreateAppOptions = {}
 ): AppInstance => {
   const app = express();
   app.use(express.json());
 
   const buildPromises = new Map<string, Promise<TreeNode>>();
   let defaultRefLastUpdated = 0;
+
+  const { dependencies = {}, level } = options;
 
   const buildTree = dependencies.buildRepositoryTreeFn ?? buildRepositoryTree;
   const collectStats = dependencies.collectGitStatsFn ?? collectGitStats;
@@ -191,6 +217,10 @@ const createApp = (
     });
   });
 
+  if (typeof level === 'number' && Number.isFinite(level) && level > 0) {
+    app.use(createLevelRedirectMiddleware(level));
+  }
+
   app.get('/api/tree', async (req: Request, res: Response) => {
     const requestedRef = extractRefParam(req);
     try {
@@ -249,7 +279,8 @@ export const startServer = async ({
   port = 3000,
   repoPath,
   ref,
-  silent = false
+  silent = false,
+  level
 }: ServerOptions): Promise<http.Server> => {
   if (!repoPath) {
     throw new Error('Server requires a repository path');
@@ -257,7 +288,9 @@ export const startServer = async ({
 
   const gitRef = ref ?? 'HEAD';
   const allowFallbackToWorkingTree = ref == null;
-  const { app, refreshTree } = createApp(repoPath, gitRef, allowFallbackToWorkingTree);
+  const { app, refreshTree } = createApp(repoPath, gitRef, allowFallbackToWorkingTree, {
+    level
+  });
   await refreshTree(gitRef);
 
   return new Promise((resolve, reject) => {
@@ -273,6 +306,6 @@ export const startServer = async ({
   });
 };
 
-export { createApp };
+export { createApp, createLevelRedirectMiddleware };
 export type { TreeNode };
 export type { AppDependencies };

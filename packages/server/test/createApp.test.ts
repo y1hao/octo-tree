@@ -1,7 +1,7 @@
 import type { Express, Request, Response } from 'express';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { GitRepositoryError, type TreeNode } from '@octotree/core';
-import { createApp } from '../src';
+import { createApp, createLevelRedirectMiddleware } from '../src';
 
 interface GitStats {
   totalCommits: number | null;
@@ -78,8 +78,10 @@ describe('createApp', () => {
 
     const tree = createTree();
     const appInstance = createApp('/repo', 'HEAD', false, {
-      buildRepositoryTreeFn: buildRepositoryTreeMock,
-      collectGitStatsFn: collectGitStatsMock
+      dependencies: {
+        buildRepositoryTreeFn: buildRepositoryTreeMock,
+        collectGitStatsFn: collectGitStatsMock
+      }
     });
 
     const first = appInstance.getTree();
@@ -107,8 +109,10 @@ describe('createApp', () => {
       .mockResolvedValueOnce({ totalCommits: 2, latestCommitTimestamp: 1700000001000 });
 
     const appInstance = createApp('/repo', 'HEAD', false, {
-      buildRepositoryTreeFn: buildRepositoryTreeMock,
-      collectGitStatsFn: collectGitStatsMock
+      dependencies: {
+        buildRepositoryTreeFn: buildRepositoryTreeMock,
+        collectGitStatsFn: collectGitStatsMock
+      }
     });
 
     const first = await appInstance.getTree();
@@ -125,8 +129,10 @@ describe('createApp', () => {
     buildRepositoryTreeMock.mockRejectedValueOnce(new GitRepositoryError('bad ref'));
 
     const appInstance = createApp('/repo', 'HEAD', false, {
-      buildRepositoryTreeFn: buildRepositoryTreeMock,
-      collectGitStatsFn: collectGitStatsMock
+      dependencies: {
+        buildRepositoryTreeFn: buildRepositoryTreeMock,
+        collectGitStatsFn: collectGitStatsMock
+      }
     });
     const handler = getRouteHandler(appInstance.app, '/api/tree', 'get');
     const req = { query: { ref: 'bad' } } as unknown as Request;
@@ -136,5 +142,47 @@ describe('createApp', () => {
 
     expect(res.status).toHaveBeenCalledWith(400);
     expect(res.json).toHaveBeenCalledWith({ error: 'bad ref' });
+  });
+});
+
+describe('createLevelRedirectMiddleware', () => {
+  it('redirects root requests without a level query parameter', () => {
+    const middleware = createLevelRedirectMiddleware(3);
+    const redirect = vi.fn();
+    const next = vi.fn();
+    const req = {
+      method: 'GET',
+      path: '/',
+      query: {},
+      originalUrl: '/?ref=abc'
+    } as unknown as Request;
+    const res = {
+      redirect
+    } as unknown as Response;
+
+    middleware(req, res, next);
+
+    expect(redirect).toHaveBeenCalledWith('/?ref=abc&level=3');
+    expect(next).not.toHaveBeenCalled();
+  });
+
+  it('falls through when conditions are not met', () => {
+    const middleware = createLevelRedirectMiddleware(2);
+    const redirect = vi.fn();
+    const next = vi.fn();
+    const req = {
+      method: 'GET',
+      path: '/',
+      query: { level: '2' },
+      originalUrl: '/?level=2'
+    } as unknown as Request;
+    const res = {
+      redirect
+    } as unknown as Response;
+
+    middleware(req, res, next);
+
+    expect(redirect).not.toHaveBeenCalled();
+    expect(next).toHaveBeenCalledTimes(1);
   });
 });

@@ -11,12 +11,14 @@ vi.mock('child_process', () => ({
   spawn: spawnMock
 }));
 import {
+  buildClientUrl,
   closeServer,
   ensureMp4Path,
   ensurePngPath,
   getServerPort,
   parseAspect,
   parseCommitBound,
+  parseLevel,
   parseWidth,
   runProcess,
   sampleCommits
@@ -73,6 +75,13 @@ describe('parse helpers', () => {
     expect(parseCommitBound('0', '--from')).toEqual({ error: '--from must be a positive integer' });
     expect(parseCommitBound('abc', '--to')).toEqual({ error: '--to must be a positive integer' });
   });
+
+  it('validates level overrides', () => {
+    expect(parseLevel(undefined)).toEqual({});
+    expect(parseLevel('4')).toEqual({ value: 4 });
+    expect(parseLevel('0')).toEqual({ error: '--level must be a positive integer' });
+    expect(parseLevel('not-a-number')).toEqual({ error: '--level must be a positive integer' });
+  });
 });
 
 describe('commit sampling', () => {
@@ -87,6 +96,17 @@ describe('commit sampling', () => {
     expect(sampled[0]).toBe('c0');
     expect(sampled[sampled.length - 1]).toBe('c9');
     expect(new Set(sampled).size).toBe(sampled.length);
+  });
+});
+
+describe('buildClientUrl', () => {
+  it('appends ref and level parameters to the base URL', () => {
+    const url = buildClientUrl('http://localhost:3000', { ref: 'abc', level: 5 });
+    expect(url).toBe('http://localhost:3000/?ref=abc&level=5');
+  });
+
+  it('omits parameters when not provided', () => {
+    expect(buildClientUrl('http://localhost:3000', {})).toBe('http://localhost:3000/');
   });
 });
 
