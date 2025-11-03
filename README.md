@@ -54,6 +54,21 @@ Options:
 
 The PNG is rendered at the requested CSS width/height with a device scale factor of `2`, so the output bitmap is twice as dense as the viewport dimensions.
 
+## Generate a Video
+```bash
+node packages/cli/dist/index.js video --repo /path/to/git/repo --output octo-tree.mp4
+```
+
+Options:
+- `--repo` defaults to the current working directory.
+- `--output` defaults to `octo-tree.mp4` (auto-appends `.mp4` if missing).
+- `--port` defaults to `0`, so an open port is allocated automatically for each frame.
+- `--width` defaults to `1440` CSS pixels; `--aspect` defaults to `4:3`.
+- `--fps` defaults to `10` frames per second.
+- `--max-seconds` defaults to `60`; frames are uniformly sampled to keep within `fps × max-seconds`.
+
+The command captures PNG frames for each sampled commit (oldest → newest) and stitches them into an MP4 using the bundled ffmpeg binary.
+
 Large repositories are supported—the tree builder streams `git ls-files` output to avoid buffer limits.
 
 Branch thickness reflects how many files live inside a directory, branch color lightens with the largest descendant file size (capped at the 90th percentile), and the sidebar highlights directories/files alongside latest commit time and commit count.

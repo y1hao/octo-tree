@@ -1,10 +1,13 @@
 #!/usr/bin/env node
 import fs from 'fs/promises';
 import http from 'http';
+import os from 'os';
+import { spawn } from 'child_process';
 import { Command } from 'commander';
 import path from 'path';
 import process from 'process';
 import puppeteer, { Browser } from 'puppeteer';
+import ffmpegStatic from 'ffmpeg-static';
 import { startServer } from '@octotree/server';
 import { GitRepositoryError } from '@octotree/core';
 
@@ -14,6 +17,21 @@ const DEFAULT_PORT = 3000;
 const DEFAULT_WIDTH = 1440;
 const DEFAULT_ASPECT_X = 4;
 const DEFAULT_ASPECT_Y = 3;
+const DEFAULT_DEVICE_SCALE = 2;
+
+const ensurePngPath = (outputPath: string): `${string}.png` => {
+  if (outputPath.toLowerCase().endsWith('.png')) {
+    return outputPath as `${string}.png`;
+  }
+  return `${outputPath}.png` as `${string}.png`;
+};
+
+const ensureMp4Path = (outputPath: string): `${string}.mp4` => {
+  if (outputPath.toLowerCase().endsWith('.mp4')) {
+    return outputPath as `${string}.mp4`;
+  }
+  return `${outputPath}.mp4` as `${string}.mp4`;
+};
 
 interface ServeOptions {
   repo?: string;
@@ -28,6 +46,16 @@ interface ScreenshotOptions {
   width?: string;
   aspect?: string;
   ref?: string;
+}
+
+interface VideoOptions {
+  repo?: string;
+  port?: string;
+  output?: string;
+  width?: string;
+  aspect?: string;
+  fps?: string;
+  maxSeconds?: string;
 }
 
 const serveAction = async (options: ServeOptions) => {
@@ -107,6 +135,146 @@ const parseAspect = (rawAspect: string | undefined): { x: number; y: number } | 
   return { x: Math.round(x), y: Math.round(y) };
 };
 
+interface CaptureOptions {
+  repoPath: string;
+  ref?: string;
+  width: number;
+  height: number;
+  requestedPort: number;
+  outputPath: string;
+  silent?: boolean;
+}
+
+const captureScreenshot = async ({
+  repoPath,
+  ref,
+  width,
+  height,
+  requestedPort,
+  outputPath,
+  silent = false
+}: CaptureOptions): Promise<string> => {
+  const pngPath = ensurePngPath(outputPath);
+
+  let server: http.Server | null = null;
+  let browser: Browser | null = null;
+
+  try {
+    const portPreference = requestedPort === 0 ? 0 : requestedPort || DEFAULT_PORT;
+    server = await startServer({ port: portPreference, repoPath, ref });
+    const port = portPreference === 0 ? getServerPort(server) : portPreference;
+    const url = `http://localhost:${port}`;
+
+    browser = await puppeteer.launch({ headless: true });
+    const page = await browser.newPage();
+    await page.setViewport({ width, height, deviceScaleFactor: DEFAULT_DEVICE_SCALE });
+    await page.goto(url, { waitUntil: 'networkidle0' });
+    await page.waitForSelector('.radial-tree svg', { timeout: 20000 });
+    await page.waitForFunction(
+      () => document.querySelectorAll('.radial-tree__link').length > 0,
+      { timeout: 20000 }
+    );
+
+    await fs.mkdir(path.dirname(pngPath), { recursive: true });
+    await page.screenshot({ path: pngPath, type: 'png', fullPage: false });
+
+    if (!silent) {
+      console.log(
+        `Saved ${width}x${height} (CSS px) screenshot${ref ? ` at ref ${ref}` : ''} to ${pngPath} (device scale factor ${DEFAULT_DEVICE_SCALE})`
+      );
+    }
+
+    return pngPath;
+  } finally {
+    await Promise.allSettled([browser?.close(), closeServer(server)]);
+  }
+};
+
+const runGit = async (repoPath: string, args: string[]): Promise<string> => {
+  return new Promise((resolve, reject) => {
+    const child = spawn('git', args, { cwd: repoPath });
+    let stdout = '';
+    let stderr = '';
+
+    child.stdout.setEncoding('utf8');
+    child.stdout.on('data', (chunk) => {
+      stdout += chunk;
+    });
+
+    child.stderr.setEncoding('utf8');
+    child.stderr.on('data', (chunk) => {
+      stderr += chunk;
+    });
+
+    child.on('error', (error) => {
+      reject(error);
+    });
+
+    child.on('close', (code) => {
+      if (code === 0) {
+        resolve(stdout.trim());
+      } else {
+        reject(new GitRepositoryError(stderr.trim() || `git ${args.join(' ')} exited with code ${code}`));
+      }
+    });
+  });
+};
+
+const listCommitsForBranch = async (repoPath: string): Promise<string[]> => {
+  const output = await runGit(repoPath, ['rev-list', '--reverse', 'HEAD']);
+  return output
+    .split('\n')
+    .map((commit) => commit.trim())
+    .filter((commit) => commit.length > 0);
+};
+
+const sampleCommits = (commits: string[], maxFrames: number): string[] => {
+  if (commits.length <= maxFrames) {
+    return commits;
+  }
+
+  const frameCount = Math.max(1, maxFrames);
+  const lastIndex = commits.length - 1;
+  const indices = new Set<number>();
+
+  for (let frameIndex = 0; frameIndex < frameCount; frameIndex += 1) {
+    const index = Math.floor((frameIndex * lastIndex) / Math.max(frameCount - 1, 1));
+    indices.add(Math.min(index, lastIndex));
+  }
+  indices.add(lastIndex);
+
+  return Array.from(indices)
+    .sort((a, b) => a - b)
+    .map((index) => commits[index]);
+};
+
+const getFfmpegExecutable = (): string => {
+  if (typeof ffmpegStatic === 'string' && ffmpegStatic.length > 0) {
+    return ffmpegStatic;
+  }
+  return 'ffmpeg';
+};
+
+const runProcess = async (
+  command: string,
+  args: string[],
+  options: { cwd?: string }
+): Promise<void> => {
+  return new Promise((resolve, reject) => {
+    const child = spawn(command, args, { cwd: options.cwd, stdio: 'inherit' });
+    child.on('error', (error) => {
+      reject(error);
+    });
+    child.on('close', (code) => {
+      if (code === 0) {
+        resolve();
+      } else {
+        reject(new Error(`${command} exited with code ${code}`));
+      }
+    });
+  });
+};
+
 const screenshotAction = async (options: ScreenshotOptions) => {
   const repoPath = path.resolve(options.repo ?? process.cwd());
   const outputPath = path.resolve(options.output ?? 'octo-tree.png');
@@ -119,7 +287,6 @@ const screenshotAction = async (options: ScreenshotOptions) => {
   }
 
   const requestedRef = options.ref;
-  const ref = requestedRef ?? 'HEAD';
   const width = parseWidth(options.width);
   if (width == null) {
     console.error('Width must be a positive number');
@@ -136,38 +303,16 @@ const screenshotAction = async (options: ScreenshotOptions) => {
 
   const height = Math.round((width * aspect.y) / aspect.x);
 
-  let server: http.Server | null = null;
-  let browser: Browser | null = null;
-
   try {
-    const requestedPort = parsedPort === 0 ? 0 : parsedPort || DEFAULT_PORT;
-    server = await startServer({ port: requestedPort, repoPath, ref: requestedRef });
-    const port = requestedPort === 0 ? getServerPort(server) : requestedPort;
-    const url = `http://localhost:${port}`;
-
-    browser = await puppeteer.launch({ headless: true });
-    const page = await browser.newPage();
-    await page.setViewport({ width, height, deviceScaleFactor: 2 });
-    await page.goto(url, { waitUntil: 'networkidle0' });
-    await page.waitForSelector('.radial-tree svg', { timeout: 20000 });
-    await page.waitForFunction(
-      () => document.querySelectorAll('.radial-tree__link').length > 0,
-      { timeout: 20000 }
-    );
-
-    await fs.mkdir(path.dirname(outputPath), { recursive: true });
-    const finalOutputPath = outputPath.toLowerCase().endsWith('.png')
-      ? outputPath
-      : `${outputPath}.png`;
-    const screenshotOptions = {
-      path: finalOutputPath as `${string}.png`,
-      type: 'png' as const,
-      fullPage: false
-    };
-    await page.screenshot(screenshotOptions);
-    console.log(
-      `Saved ${width}x${height} (CSS px) screenshot at ref ${ref} to ${finalOutputPath} (device scale factor 2)`
-    );
+    await captureScreenshot({
+      repoPath,
+      ref: requestedRef,
+      width,
+      height,
+      requestedPort: parsedPort,
+      outputPath,
+      silent: false
+    });
   } catch (error) {
     if (error instanceof GitRepositoryError) {
       console.error(error.message);
@@ -176,8 +321,114 @@ const screenshotAction = async (options: ScreenshotOptions) => {
     }
     console.error('Failed to capture screenshot:', error);
     process.exitCode = 1;
-  } finally {
-    await Promise.allSettled([browser?.close(), closeServer(server)]);
+  }
+};
+
+const videoAction = async (options: VideoOptions) => {
+  const repoPath = path.resolve(options.repo ?? process.cwd());
+  const outputPath = path.resolve(options.output ?? 'octo-tree.mp4');
+  const parsedPort = Number(options.port ?? '0');
+
+  if (Number.isNaN(parsedPort)) {
+    console.error('Port must be a number');
+    process.exitCode = 1;
+    return;
+  }
+
+  const width = parseWidth(options.width);
+  if (width == null) {
+    console.error('Width must be a positive number');
+    process.exitCode = 1;
+    return;
+  }
+
+  const aspect = parseAspect(options.aspect);
+  if (!aspect) {
+    console.error('Aspect ratio must be provided in the form x:y with positive numbers');
+    process.exitCode = 1;
+    return;
+  }
+
+  const height = Math.round((width * aspect.y) / aspect.x);
+
+  const fpsValue = Number(options.fps ?? '10');
+  if (Number.isNaN(fpsValue) || fpsValue <= 0) {
+    console.error('FPS must be a positive number');
+    process.exitCode = 1;
+    return;
+  }
+
+  const maxSecondsValue = Number(options.maxSeconds ?? '60');
+  if (Number.isNaN(maxSecondsValue) || maxSecondsValue <= 0) {
+    console.error('max-seconds must be a positive number');
+    process.exitCode = 1;
+    return;
+  }
+
+  const frameBudget = Math.max(1, Math.round(fpsValue * maxSecondsValue));
+
+  try {
+    const commits = await listCommitsForBranch(repoPath);
+    if (commits.length === 0) {
+      console.error('No commits found in repository history');
+      process.exitCode = 1;
+      return;
+    }
+
+    const commitsToRender = sampleCommits(commits, frameBudget);
+    const totalFrames = commitsToRender.length;
+
+    console.log(
+      `Rendering ${totalFrames} frames (${fpsValue} fps) sampled from ${commits.length} commits`);
+
+    const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'octo-tree-video-'));
+    const videoPath = ensureMp4Path(outputPath);
+    let success = false;
+
+    try {
+      await fs.mkdir(path.dirname(videoPath), { recursive: true });
+      for (let index = 0; index < totalFrames; index += 1) {
+        const commit = commitsToRender[index];
+        const frameFile = path.join(tempDir, `frame-${String(index + 1).padStart(6, '0')}.png`);
+        await captureScreenshot({
+          repoPath,
+          ref: commit,
+          width,
+          height,
+          requestedPort: parsedPort,
+          outputPath: frameFile,
+          silent: true
+        });
+        console.log(`Captured frame ${index + 1}/${totalFrames} (${commit.slice(0, 7)})`);
+      }
+
+      const ffmpegExecutable = getFfmpegExecutable();
+      const ffmpegArgs = [
+        '-y',
+        '-framerate', fpsValue.toString(),
+        '-i', 'frame-%06d.png',
+        '-c:v', 'libx264',
+        '-pix_fmt', 'yuv420p',
+        videoPath
+      ];
+
+      await runProcess(ffmpegExecutable, ffmpegArgs, { cwd: tempDir });
+      console.log(`Saved video (${totalFrames} frames @ ${fpsValue} fps) to ${videoPath}`);
+      success = true;
+    } finally {
+      await fs.rm(tempDir, { recursive: true, force: true }).catch(() => undefined);
+    }
+
+    if (!success) {
+      process.exitCode = 1;
+    }
+  } catch (error) {
+    if (error instanceof GitRepositoryError) {
+      console.error(error.message);
+    } else {
+      console.error('Failed to generate video:', error);
+    }
+    process.exitCode = 1;
   }
 };
 
@@ -210,6 +461,24 @@ program
   .option('--ref <git-ref>', 'Git ref (commit SHA, tag, etc.) to visualize')
   .action(async (options) => {
     await screenshotAction(options as ScreenshotOptions);
+  });
+
+program
+  .command('video')
+  .description('Generate an MP4 video showing the visualization over repository history')
+  .option('-r, --repo <path>', 'Path to the repository to visualize', process.cwd())
+  .option('-p, --port <number>', 'Port to run the web server on (0 selects a random open port)', '0')
+  .option('-o, --output <path>', 'Output path for the MP4 file', 'octo-tree.mp4')
+  .option('-w, --width <number>', 'Horizontal side length in CSS pixels', DEFAULT_WIDTH.toString())
+  .option(
+    '-a, --aspect <ratio>',
+    `Aspect ratio for width:height (format x:y)`,
+    `${DEFAULT_ASPECT_X}:${DEFAULT_ASPECT_Y}`
+  )
+  .option('--fps <number>', 'Frames per second of the output video', '10')
+  .option('--max-seconds <number>', 'Maximum length of the video in seconds', '60')
+  .action(async (options) => {
+    await videoAction(options as VideoOptions);
   });
 
 program.parseAsync(process.argv);
