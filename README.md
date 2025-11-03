@@ -24,6 +24,11 @@ Radial visualization tool for exploring git-tracked files in any repository. The
 npm install
 ```
 
+## Run Tests
+```bash
+npm test
+```
+
 ## Build All Packages
 ```bash
 npm run build         # builds TypeScript packages and the front-end bundle
