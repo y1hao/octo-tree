@@ -8,7 +8,17 @@ const formatTimestamp = (timestamp: number | null): string => {
     return 'Never';
   }
   const date = new Date(timestamp);
-  return `${date.toLocaleDateString()} ${date.toLocaleTimeString()}`;
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
+const formatCount = (value: number | null | undefined, label: string): string => {
+  if (value == null) {
+    return '—';
+  }
+  return `${value.toLocaleString()} ${label}`;
 };
 
 const formatBytes = (bytes: number): string => {
@@ -110,14 +120,16 @@ export const App: React.FC = () => {
           <div className="sidebar__section sidebar__section--stacked">
             <span className="sidebar__heading">{tree?.name ?? '—'}</span>
             <span className="sidebar__line">
-              Directories: {aggregateStats ? aggregateStats.directories : '—'} · Files:{' '}
-              {aggregateStats ? aggregateStats.files : '—'}
+              {formatTimestamp(gitStats?.latestCommitTimestamp ?? null)}
             </span>
             <span className="sidebar__line">
-              Latest commit: {formatTimestamp(gitStats?.latestCommitTimestamp ?? null)}
+              {formatCount(gitStats?.totalCommits ?? null, 'commits')}
             </span>
             <span className="sidebar__line">
-              Total commits: {gitStats?.totalCommits ?? '—'}
+              {formatCount(aggregateStats?.files ?? null, 'files')}
+            </span>
+            <span className="sidebar__line">
+              {formatCount(aggregateStats?.directories ?? null, 'directories')}
             </span>
           </div>
         </aside>

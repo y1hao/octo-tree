@@ -80,14 +80,15 @@ body {
   justify-content: center;
   gap: 0.75rem;
   position: relative;
-  width: 100%;
-  height: 100%;
+  width: min(100%, 90vh);
+  aspect-ratio: 1 / 1;
+  height: auto;
+  max-width: 90vh;
 }
 
 .radial-tree svg {
+  width: 100%;
   height: 100%;
-  width: auto;
-  max-width: 100%;
   border-radius: 999px;
   background: radial-gradient(circle at center, rgba(34, 197, 94, 0.2) 0%, rgba(15, 23, 42, 0.92) 68%);
   box-shadow: inset 0 0 45px rgba(7, 89, 53, 0.4);
@@ -176,7 +177,7 @@ body {
 }
 
 .sidebar__heading {
-  font-size: 2rem;
+  font-size: 2.5rem;
   font-weight: 700;
   color: #bbf7d0;
   text-align: center;
@@ -192,7 +193,7 @@ body {
 
 .sidebar__line {
   font-family: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;
-  font-size: 0.9rem;
+  font-size: 1.1rem;
   color: rgba(226, 232, 240, 0.82);
   letter-spacing: 0.02em;
   text-align: right;
@@ -212,6 +213,17 @@ body {
   .app__visualization {
     padding: 0.75rem;
     min-height: 50vh;
+  }
+
+  .radial-tree {
+    width: 100%;
+    max-width: none;
+    aspect-ratio: 1 / 1;
+  }
+
+  .radial-tree svg {
+    width: 100%;
+    height: 100%;
   }
 
   .app__sidebar {

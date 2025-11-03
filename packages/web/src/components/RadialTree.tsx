@@ -80,15 +80,15 @@ export const RadialTree: React.FC<RadialTreeProps> = ({ data }) => {
 
     computeMaxFileSize(positionedRoot);
 
-    let sizePercentile90 = 0;
+    let sizePercentile95 = 0;
     if (fileSizes.length > 0) {
       fileSizes.sort((a, b) => a - b);
-      const index = Math.min(fileSizes.length - 1, Math.floor(fileSizes.length * 0.9));
-      sizePercentile90 = fileSizes[index];
+      const index = Math.min(fileSizes.length - 1, Math.floor(fileSizes.length * 0.95));
+      sizePercentile95 = fileSizes[index];
     }
 
-    if (sizePercentile90 === 0 && fileSizes.length > 0) {
-      sizePercentile90 = fileSizes[fileSizes.length - 1];
+    if (sizePercentile95 === 0 && fileSizes.length > 0) {
+      sizePercentile95 = fileSizes[fileSizes.length - 1];
     }
 
     return {
@@ -96,7 +96,7 @@ export const RadialTree: React.FC<RadialTreeProps> = ({ data }) => {
       radius,
       maxDepth: computedMaxDepth,
       maxFileSizeMap,
-      sizePercentile90
+      sizePercentile90: sizePercentile95
     };
   }, [data]);
 
