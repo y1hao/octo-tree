@@ -25,7 +25,7 @@ const separation = (
   return a.parent === b.parent ? 1 : 2;
 };
 
-const formatBytes = (bytes: number): string => {
+export const formatBytes = (bytes: number): string => {
   if (bytes === 0) {
     return '0 B';
   }
@@ -198,6 +198,7 @@ export const RadialTree: React.FC<RadialTreeProps> = ({ data }) => {
                 key={link.target.data.id}
                 d={linkPath(link) ?? undefined}
                 className="radial-tree__link"
+                data-node-id={link.target.data.id}
                 strokeWidth={strokeWidth}
                 stroke={strokeColor}
                 onMouseEnter={(event) => handleLinkHover(event, link.target)}
