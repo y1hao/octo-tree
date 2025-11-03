@@ -100,7 +100,7 @@ const resolveRepoRoot = async (repoPath: string): Promise<string> => {
 
 const listGitManagedFiles = async (repoPath: string): Promise<string[]> => {
   return new Promise((resolve, reject) => {
-    const child = spawn('git', ['ls-files', '--cached', '--others', '--exclude-standard'], {
+    const child = spawn('git', ['ls-files', '--cached', '--exclude-standard'], {
       cwd: repoPath
     });
 
@@ -143,7 +143,7 @@ const listGitManagedFiles = async (repoPath: string): Promise<string[]> => {
       } else {
         reject(
           new GitRepositoryError(
-            `Git command failed (git ls-files --cached --others --exclude-standard): ${stderr.trim()}`
+            `Git command failed (git ls-files --cached --exclude-standard): ${stderr.trim()}`
           )
         );
       }
