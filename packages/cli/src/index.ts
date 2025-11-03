@@ -21,14 +21,14 @@ const DEFAULT_DEVICE_SCALE = 2;
 const VIDEO_NAVIGATION_TIMEOUT_MS = 120_000;
 const VIDEO_WAIT_TIMEOUT_MS = 120_000;
 
-const ensurePngPath = (outputPath: string): `${string}.png` => {
+export const ensurePngPath = (outputPath: string): `${string}.png` => {
   if (outputPath.toLowerCase().endsWith('.png')) {
     return outputPath as `${string}.png`;
   }
   return `${outputPath}.png` as `${string}.png`;
 };
 
-const ensureMp4Path = (outputPath: string): `${string}.mp4` => {
+export const ensureMp4Path = (outputPath: string): `${string}.mp4` => {
   if (outputPath.toLowerCase().endsWith('.mp4')) {
     return outputPath as `${string}.mp4`;
   }
@@ -88,7 +88,7 @@ const serveAction = async (options: ServeOptions) => {
   }
 };
 
-const closeServer = (server: http.Server | null): Promise<void> => {
+export const closeServer = (server: http.Server | null): Promise<void> => {
   if (!server) {
     return Promise.resolve();
   }
@@ -103,7 +103,7 @@ const closeServer = (server: http.Server | null): Promise<void> => {
   });
 };
 
-const getServerPort = (server: http.Server): number => {
+export const getServerPort = (server: http.Server): number => {
   const address = server.address();
   if (typeof address === 'object' && address && 'port' in address) {
     return address.port;
@@ -111,7 +111,7 @@ const getServerPort = (server: http.Server): number => {
   throw new Error('Failed to determine server port');
 };
 
-const parseWidth = (rawWidth: string | undefined): number | null => {
+export const parseWidth = (rawWidth: string | undefined): number | null => {
   if (!rawWidth) {
     return DEFAULT_WIDTH;
   }
@@ -122,7 +122,7 @@ const parseWidth = (rawWidth: string | undefined): number | null => {
   return Math.round(width);
 };
 
-const parseAspect = (rawAspect: string | undefined): { x: number; y: number } | null => {
+export const parseAspect = (rawAspect: string | undefined): { x: number; y: number } | null => {
   if (!rawAspect) {
     return { x: DEFAULT_ASPECT_X, y: DEFAULT_ASPECT_Y };
   }
@@ -139,7 +139,7 @@ const parseAspect = (rawAspect: string | undefined): { x: number; y: number } | 
   return { x: Math.round(x), y: Math.round(y) };
 };
 
-const parseCommitBound = (
+export const parseCommitBound = (
   rawValue: string | undefined,
   flag: '--from' | '--to'
 ): { value?: number; error?: string } => {
@@ -209,7 +209,7 @@ const captureScreenshot = async ({
   }
 };
 
-const runGit = async (repoPath: string, args: string[]): Promise<string> => {
+export const runGit = async (repoPath: string, args: string[]): Promise<string> => {
   return new Promise((resolve, reject) => {
     const child = spawn('git', args, { cwd: repoPath });
     let stdout = '';
@@ -239,7 +239,7 @@ const runGit = async (repoPath: string, args: string[]): Promise<string> => {
   });
 };
 
-const listCommitsForBranch = async (repoPath: string): Promise<string[]> => {
+export const listCommitsForBranch = async (repoPath: string): Promise<string[]> => {
   const output = await runGit(repoPath, ['rev-list', '--reverse', 'HEAD']);
   return output
     .split('\n')
@@ -247,7 +247,7 @@ const listCommitsForBranch = async (repoPath: string): Promise<string[]> => {
     .filter((commit) => commit.length > 0);
 };
 
-const sampleCommits = (commits: string[], maxFrames: number): string[] => {
+export const sampleCommits = (commits: string[], maxFrames: number): string[] => {
   if (commits.length <= maxFrames) {
     return commits;
   }
@@ -267,14 +267,14 @@ const sampleCommits = (commits: string[], maxFrames: number): string[] => {
     .map((index) => commits[index]);
 };
 
-const getFfmpegExecutable = (): string => {
+export const getFfmpegExecutable = (): string => {
   if (typeof ffmpegStatic === 'string' && ffmpegStatic.length > 0) {
     return ffmpegStatic;
   }
   return 'ffmpeg';
 };
 
-const runProcess = async (
+export const runProcess = async (
   command: string,
   args: string[],
   options: { cwd?: string }
@@ -593,4 +593,6 @@ program
     await videoAction(options as VideoOptions);
   });
 
-program.parseAsync(process.argv);
+if (require.main === module) {
+  void program.parseAsync(process.argv);
+}
