@@ -70,7 +70,11 @@ export const App: React.FC = () => {
     setRefreshing(true);
     setError(null);
     try {
-      const { tree: refreshedTree, lastUpdated: updated, gitStats: stats } = await fetchTree('/api/tree/refresh', {
+      const {
+        tree: refreshedTree,
+        lastUpdated: updated,
+        gitStats: stats
+      } = await fetchTree('/api/tree/refresh', {
         method: 'POST'
       });
       setTree(refreshedTree);

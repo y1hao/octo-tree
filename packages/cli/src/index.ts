@@ -18,6 +18,7 @@ const DEFAULT_ASPECT_Y = 3;
 interface ServeOptions {
   repo?: string;
   port?: string;
+  ref?: string;
 }
 
 interface ScreenshotOptions {
@@ -26,6 +27,7 @@ interface ScreenshotOptions {
   output?: string;
   width?: string;
   aspect?: string;
+  ref?: string;
 }
 
 const serveAction = async (options: ServeOptions) => {
@@ -37,10 +39,12 @@ const serveAction = async (options: ServeOptions) => {
   }
 
   const repoPath = path.resolve(options.repo ?? process.cwd());
-  console.log(`Launching visualization for repo: ${repoPath}`);
+  const requestedRef = options.ref;
+  const ref = requestedRef ?? 'HEAD';
+  console.log(`Launching visualization for repo: ${repoPath} at ref ${ref}`);
 
   try {
-    await startServer({ port, repoPath });
+    await startServer({ port, repoPath, ref: requestedRef });
   } catch (error) {
     if (error instanceof GitRepositoryError) {
       console.error(error.message);
@@ -114,6 +118,8 @@ const screenshotAction = async (options: ScreenshotOptions) => {
     return;
   }
 
+  const requestedRef = options.ref;
+  const ref = requestedRef ?? 'HEAD';
   const width = parseWidth(options.width);
   if (width == null) {
     console.error('Width must be a positive number');
@@ -135,7 +141,7 @@ const screenshotAction = async (options: ScreenshotOptions) => {
 
   try {
     const requestedPort = parsedPort === 0 ? 0 : parsedPort || DEFAULT_PORT;
-    server = await startServer({ port: requestedPort, repoPath });
+    server = await startServer({ port: requestedPort, repoPath, ref: requestedRef });
     const port = requestedPort === 0 ? getServerPort(server) : requestedPort;
     const url = `http://localhost:${port}`;
 
@@ -160,7 +166,7 @@ const screenshotAction = async (options: ScreenshotOptions) => {
     };
     await page.screenshot(screenshotOptions);
     console.log(
-      `Saved ${width}x${height} (CSS px) screenshot to ${finalOutputPath} (device scale factor 2)`
+      `Saved ${width}x${height} (CSS px) screenshot at ref ${ref} to ${finalOutputPath} (device scale factor 2)`
     );
   } catch (error) {
     if (error instanceof GitRepositoryError) {
@@ -184,6 +190,7 @@ program
   .description('Launch the radial file tree web server')
   .option('-r, --repo <path>', 'Path to the repository to visualize', process.cwd())
   .option('-p, --port <number>', 'Port to run the web server on', DEFAULT_PORT.toString())
+  .option('--ref <git-ref>', 'Git ref (commit SHA, tag, etc.) to visualize')
   .action(async (options) => {
     await serveAction(options as ServeOptions);
   });
@@ -200,6 +207,7 @@ program
     `Aspect ratio for width:height (format x:y)`,
     `${DEFAULT_ASPECT_X}:${DEFAULT_ASPECT_Y}`
   )
+  .option('--ref <git-ref>', 'Git ref (commit SHA, tag, etc.) to visualize')
   .action(async (options) => {
     await screenshotAction(options as ScreenshotOptions);
   });

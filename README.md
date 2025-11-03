@@ -28,11 +28,14 @@ npm run build:web     # Vite production build for the visualization
 ## Launch the CLI
 ```bash
 node packages/cli/dist/index.js --repo /path/to/git/repo --port 3000
+# or explicitly invoke the serve subcommand
+node packages/cli/dist/index.js serve --repo /path/to/git/repo --ref HEAD
 ```
 
 Options:
 - `--repo` defaults to the current working directory.
 - `--port` defaults to `3000`.
+- `--ref` defaults to `HEAD` (any valid git ref/commit SHA).
 
 When the CLI reports the server URL, open it in your browser to explore the radial tree. The visualization fetches `/api/tree` (gitignore-aware), displays hover tooltips for branch metadata, and you can trigger a rebuild any time with `POST /api/tree/refresh`.
 
@@ -47,6 +50,7 @@ Options:
 - `--port` defaults to `0`, so an open port is allocated automatically.
 - `--width` defaults to `1440` CSS pixels (3/4 of the serve viewport width).
 - `--aspect` defaults to `4:3` (format `x:y`).
+- `--ref` defaults to `HEAD` (any valid git ref/commit SHA).
 
 The PNG is rendered at the requested CSS width/height with a device scale factor of `2`, so the output bitmap is twice as dense as the viewport dimensions.
 

@@ -12,6 +12,7 @@ import {
 export interface ServerOptions {
   port?: number;
   repoPath: string;
+  ref?: string;
 }
 
 interface AppInstance {
@@ -56,11 +57,11 @@ const runGitCommand = (repoPath: string, args: string[]): Promise<string> => {
   });
 };
 
-const collectGitStats = async (repoPath: string): Promise<GitStats> => {
+const collectGitStats = async (repoPath: string, ref: string): Promise<GitStats> => {
   try {
     const [countOutput, timeOutput] = await Promise.all([
-      runGitCommand(repoPath, ['rev-list', '--count', 'HEAD']).catch(() => ''),
-      runGitCommand(repoPath, ['show', '-s', '--format=%ct', 'HEAD']).catch(() => '')
+      runGitCommand(repoPath, ['rev-list', '--count', ref]).catch(() => ''),
+      runGitCommand(repoPath, ['show', '-s', '--format=%ct', ref]).catch(() => '')
     ]);
 
     const totalCommits = countOutput ? Number.parseInt(countOutput, 10) : null;
@@ -91,7 +92,11 @@ const resolveStaticAssets = (): { root: string; indexPath: string } => {
   return { root: distPath, indexPath };
 };
 
-const createApp = (repoPath: string): AppInstance => {
+const createApp = (
+  repoPath: string,
+  gitRef: string,
+  allowFallbackToWorkingTree: boolean
+): AppInstance => {
   const app = express();
   app.use(express.json());
 
@@ -101,10 +106,14 @@ const createApp = (repoPath: string): AppInstance => {
   let gitStats: GitStats | null = null;
 
   const runBuild = async (): Promise<TreeNode> => {
-    const tree = await buildRepositoryTree({ repoPath });
+    const tree = await buildRepositoryTree({
+      repoPath,
+      ref: gitRef,
+      allowFallbackToWorkingTree
+    });
     cachedTree = tree;
     lastUpdated = Date.now();
-    gitStats = await collectGitStats(repoPath);
+    gitStats = await collectGitStats(repoPath, gitRef);
     return tree;
   };
 
@@ -132,7 +141,7 @@ const createApp = (repoPath: string): AppInstance => {
     try {
       const tree = await getTree();
       if (!gitStats) {
-        gitStats = await collectGitStats(repoPath);
+        gitStats = await collectGitStats(repoPath, gitRef);
       }
       res.json({ tree, lastUpdated, gitStats });
     } catch (error) {
@@ -149,7 +158,7 @@ const createApp = (repoPath: string): AppInstance => {
     try {
       const tree = await refreshTree();
       if (!gitStats) {
-        gitStats = await collectGitStats(repoPath);
+        gitStats = await collectGitStats(repoPath, gitRef);
       }
       res.json({ tree, lastUpdated, gitStats });
     } catch (error) {
@@ -182,12 +191,18 @@ const createApp = (repoPath: string): AppInstance => {
   return { app, getTree, refreshTree };
 };
 
-export const startServer = async ({ port = 3000, repoPath }: ServerOptions): Promise<http.Server> => {
+export const startServer = async ({
+  port = 3000,
+  repoPath,
+  ref
+}: ServerOptions): Promise<http.Server> => {
   if (!repoPath) {
     throw new Error('Server requires a repository path');
   }
 
-  const { app, refreshTree } = createApp(repoPath);
+  const gitRef = ref ?? 'HEAD';
+  const allowFallbackToWorkingTree = ref == null;
+  const { app, refreshTree } = createApp(repoPath, gitRef, allowFallbackToWorkingTree);
   await refreshTree();
 
   return new Promise((resolve, reject) => {

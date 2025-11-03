@@ -28,6 +28,8 @@ export interface TreeNodeWithLayout extends TreeNode {
 
 export interface BuildTreeOptions {
   repoPath: string;
+  ref?: string;
+  allowFallbackToWorkingTree?: boolean;
 }
 
 export class GitRepositoryError extends Error {
@@ -158,13 +160,18 @@ const ensureChild = (parent: TreeNode, child: TreeNode): TreeNode => {
   return child;
 };
 
-const createDirectoryNode = (relativePath: string, name: string, depth: number): TreeNode => ({
+const createDirectoryNode = (
+  relativePath: string,
+  name: string,
+  depth: number,
+  mtimeMs = 0
+): TreeNode => ({
   id: makeId(relativePath, 'directory'),
   name,
   relativePath,
   type: 'directory',
   size: 0,
-  mtimeMs: 0,
+  mtimeMs,
   depth,
   children: []
 });
@@ -173,14 +180,15 @@ const createFileNode = (
   relativePath: string,
   name: string,
   depth: number,
-  stats: Stats
+  size: number,
+  mtimeMs: number
 ): TreeNode => ({
   id: makeId(relativePath, 'file'),
   name,
   relativePath,
   type: 'file',
-  size: stats.size,
-  mtimeMs: stats.mtimeMs,
+  size,
+  mtimeMs,
   depth,
   children: []
 });
@@ -214,23 +222,149 @@ const aggregateDirectoryMetadata = (node: TreeNode): { size: number; mtimeMs: nu
   return { size: totalSize, mtimeMs: latestMtime };
 };
 
-export const buildRepositoryTree = async ({ repoPath }: BuildTreeOptions): Promise<TreeNode> => {
-  const normalizedPath = await normalizeRepositoryPath(repoPath);
-  const repoRoot = await resolveRepoRoot(normalizedPath);
-  const repoName = path.basename(repoRoot);
+interface GitTreeEntry {
+  path: string;
+  size: number;
+}
 
-  const relativeRootPath = '.';
-  const rootNode = createDirectoryNode(relativeRootPath, repoName, 0);
+interface ResolvedRef {
+  treeHash: string;
+  commitHash: string | null;
+}
 
-  const nodeMap = new Map<string, TreeNode>();
-  nodeMap.set(relativeRootPath, rootNode);
+const resolveGitRef = async (repoPath: string, ref: string): Promise<ResolvedRef> => {
+  const resolvedRef = (await runGitCommand(repoPath, ['rev-parse', '--verify', ref])).trim();
+  let objectType: string;
+  try {
+    objectType = (await runGitCommand(repoPath, ['cat-file', '-t', resolvedRef])).trim();
+  } catch (error) {
+    if (error instanceof GitRepositoryError) {
+      throw new GitRepositoryError(`Failed to resolve git ref: ${ref}`);
+    }
+    throw error;
+  }
 
+  if (objectType === 'commit') {
+    const treeHash = (
+      await runGitCommand(repoPath, ['rev-parse', '--verify', `${resolvedRef}^{tree}`])
+    ).trim();
+    return { treeHash, commitHash: resolvedRef };
+  }
+
+  if (objectType === 'tag') {
+    const commitHash = (
+      await runGitCommand(repoPath, ['rev-parse', '--verify', `${resolvedRef}^{commit}`])
+    ).trim();
+    const treeHash = (
+      await runGitCommand(repoPath, ['rev-parse', '--verify', `${commitHash}^{tree}`])
+    ).trim();
+    return { treeHash, commitHash };
+  }
+
+  if (objectType === 'tree') {
+    return { treeHash: resolvedRef, commitHash: null };
+  }
+
+  throw new GitRepositoryError(`Unsupported git object type for ref ${ref}: ${objectType}`);
+};
+
+const listFilesAtTree = async (repoPath: string, treeHash: string): Promise<GitTreeEntry[]> => {
+  const output = await runGitCommand(repoPath, [
+    'ls-tree',
+    '--full-tree',
+    '--long',
+    '-r',
+    treeHash
+  ]);
+
+  const lines = output
+    .split('\n')
+    .map((line) => line.trim())
+    .filter((line) => line.length > 0);
+
+  const entries: GitTreeEntry[] = [];
+
+  for (const line of lines) {
+    const [meta, filePath] = line.split('\t');
+    if (!meta || !filePath) {
+      continue;
+    }
+    const parts = meta.split(/\s+/);
+    if (parts.length < 4) {
+      continue;
+    }
+    const type = parts[1];
+    if (type !== 'blob') {
+      continue;
+    }
+    const sizeValue = parts[3];
+    const size = sizeValue === '-' ? 0 : Number.parseInt(sizeValue, 10);
+    entries.push({ path: filePath, size: Number.isNaN(size) ? 0 : size });
+  }
+
+  return entries;
+};
+
+const getCommitTimestampMs = async (repoPath: string, commitHash: string): Promise<number | null> => {
+  try {
+    const output = await runGitCommand(repoPath, ['show', '-s', '--format=%ct', commitHash]);
+    const numeric = Number.parseInt(output.trim(), 10);
+    if (Number.isNaN(numeric)) {
+      return null;
+    }
+    return numeric * 1000;
+  } catch (error) {
+    if (error instanceof GitRepositoryError) {
+      throw error;
+    }
+    return null;
+  }
+};
+
+const insertFileNode = (
+  rootNode: TreeNode,
+  nodeMap: Map<string, TreeNode>,
+  gitPath: string,
+  size: number,
+  mtimeMs: number
+): void => {
+  const segments = gitPath.split('/');
+  let currentPath = '.';
+  let parentNode = rootNode;
+
+  for (let index = 0; index < segments.length; index += 1) {
+    const segment = segments[index];
+    const isLeaf = index === segments.length - 1;
+    const nextPath = joinRelative(currentPath, segment);
+
+    if (isLeaf) {
+      const fileNode = createFileNode(nextPath, segment, parentNode.depth + 1, size, mtimeMs);
+      nodeMap.set(nextPath, fileNode);
+      ensureChild(parentNode, fileNode);
+    } else {
+      let directoryNode = nodeMap.get(nextPath);
+      if (!directoryNode) {
+        directoryNode = createDirectoryNode(nextPath, segment, parentNode.depth + 1, mtimeMs);
+        nodeMap.set(nextPath, directoryNode);
+        ensureChild(parentNode, directoryNode);
+      }
+      parentNode = directoryNode;
+      currentPath = nextPath;
+    }
+  }
+};
+
+const buildTreeFromWorkingTree = async (
+  repoRoot: string,
+  rootNode: TreeNode,
+  nodeMap: Map<string, TreeNode>
+): Promise<void> => {
   const gitManagedFiles = await listGitManagedFiles(repoRoot);
 
   await Promise.all(
     gitManagedFiles.map(async (gitPath) => {
       const segments = gitPath.split('/');
-      let currentPath = relativeRootPath;
+      let currentPath = '.';
       let parentNode = rootNode;
 
       for (let index = 0; index < segments.length; index += 1) {
@@ -250,7 +384,13 @@ export const buildRepositoryTree = async ({ repoPath }: BuildTreeOptions): Promi
             throw error;
           }
 
-          const fileNode = createFileNode(nextPath, segment, parentNode.depth + 1, fileStats);
+          const fileNode = createFileNode(
+            nextPath,
+            segment,
+            parentNode.depth + 1,
+            fileStats.size,
+            fileStats.mtimeMs
+          );
           nodeMap.set(nextPath, fileNode);
           ensureChild(parentNode, fileNode);
         } else {
@@ -266,9 +406,69 @@ export const buildRepositoryTree = async ({ repoPath }: BuildTreeOptions): Promi
       }
     })
   );
+};
+
+const buildTreeFromCommit = async (
+  repoRoot: string,
+  rootNode: TreeNode,
+  nodeMap: Map<string, TreeNode>,
+  ref: string
+): Promise<number | null> => {
+  const { treeHash, commitHash } = await resolveGitRef(repoRoot, ref);
+  const entries = await listFilesAtTree(repoRoot, treeHash);
+  const commitTimestampMs = commitHash
+    ? await getCommitTimestampMs(repoRoot, commitHash).catch(() => null)
+    : null;
+  const mtimeMs = commitTimestampMs ?? 0;
+
+  for (const entry of entries) {
+    insertFileNode(rootNode, nodeMap, entry.path, entry.size, mtimeMs);
+  }
+  return commitTimestampMs ?? null;
+};
+
+export const buildRepositoryTree = async ({
+  repoPath,
+  ref,
+  allowFallbackToWorkingTree = false
+}: BuildTreeOptions): Promise<TreeNode> => {
+  const normalizedPath = await normalizeRepositoryPath(repoPath);
+  const repoRoot = await resolveRepoRoot(normalizedPath);
+  const repoName = path.basename(repoRoot);
+  const targetRef = ref ?? 'HEAD';
+
+  const relativeRootPath = '.';
+  const rootNode = createDirectoryNode(relativeRootPath, repoName, 0);
+
+  const nodeMap = new Map<string, TreeNode>();
+  nodeMap.set(relativeRootPath, rootNode);
+
+  let builtFromRef = false;
+  let commitTimestampMs: number | null = null;
+  try {
+    commitTimestampMs = await buildTreeFromCommit(repoRoot, rootNode, nodeMap, targetRef);
+    builtFromRef = true;
+  } catch (error) {
+    if (
+      !(error instanceof GitRepositoryError) ||
+      !allowFallbackToWorkingTree ||
+      targetRef !== 'HEAD'
+    ) {
+      throw error;
+    }
+    await buildTreeFromWorkingTree(repoRoot, rootNode, nodeMap);
+  }
+
+  if (!builtFromRef) {
+    // Working tree build — nothing extra required.
+  }
 
   sortChildrenRecursively(rootNode);
   aggregateDirectoryMetadata(rootNode);
+
+  if (builtFromRef && commitTimestampMs) {
+    rootNode.mtimeMs = commitTimestampMs;
+  }
 
   return rootNode;
 };
