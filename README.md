@@ -2,6 +2,12 @@
 
 Radial visualization tool for exploring git-tracked files in any repository. The CLI spins up a local web server that exposes the repository tree (gitignore-aware) and serves a D3-powered radial file tree in the browser.
 
+| | | |
+|---|---|---|
+| ![](./screenshots/codex.png) | ![](./screenshots/django.png) | ![](./screenshots/karpenter.png) |
+| ![](./screenshots/kubernetes.png) | ![](./screenshots/langchain.png) | ![](./screenshots/next.png) |
+| ![](./screenshots/react.png) | ![](./screenshots/sentry.png) | ![](./screenshots/typescript.png) |
+
 ## Workspace Layout
 - `packages/core` — Git-aware tree builder and shared types.
 - `packages/server` — Express server exposing `/api/tree` and hosting the built web assets.
