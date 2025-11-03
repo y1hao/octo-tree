@@ -6,7 +6,7 @@ import { spawn } from 'child_process';
 import { Command } from 'commander';
 import path from 'path';
 import process from 'process';
-import puppeteer, { Browser } from 'puppeteer';
+import puppeteer, { Browser, TimeoutError } from 'puppeteer';
 import ffmpegStatic from 'ffmpeg-static';
 import { startServer } from '@octotree/server';
 import { GitRepositoryError } from '@octotree/core';
@@ -437,13 +437,13 @@ const videoAction = async (options: VideoOptions) => {
     }
 
     const commitsToRender = sampleCommits(commitsInRange, frameBudget);
-    const totalFrames = commitsToRender.length;
+    const requestedFrames = commitsToRender.length;
 
     const rangeLabel = fromIndex === 1 && toIndex === commits.length
       ? `${commits.length} commits`
       : `${commitsInRange.length} commits (range ${fromIndex}-${toIndex} of ${commits.length})`;
 
-    console.log(`Rendering ${totalFrames} frames (${fpsValue} fps) sampled from ${rangeLabel}`);
+    console.log(`Rendering up to ${requestedFrames} frames (${fpsValue} fps) sampled from ${rangeLabel}`);
 
     const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'octo-tree-video-'));
     const videoPath = ensureMp4Path(outputPath);
@@ -466,22 +466,49 @@ const videoAction = async (options: VideoOptions) => {
       page.setDefaultNavigationTimeout(VIDEO_NAVIGATION_TIMEOUT_MS);
       page.setDefaultTimeout(VIDEO_WAIT_TIMEOUT_MS);
 
-      for (let index = 0; index < totalFrames; index += 1) {
-        const commit = commitsToRender[index];
-        const frameUrl = `${baseUrl}/?ref=${encodeURIComponent(commit)}`;
-        await page.goto(frameUrl, {
-          waitUntil: 'networkidle0',
-          timeout: VIDEO_NAVIGATION_TIMEOUT_MS
-        });
-        await page.waitForSelector('.radial-tree svg', { timeout: VIDEO_WAIT_TIMEOUT_MS });
-        await page.waitForFunction(
-          () => document.querySelectorAll('.radial-tree__link').length > 0,
-          { timeout: VIDEO_WAIT_TIMEOUT_MS }
-        );
+      let capturedFrames = 0;
+      let skippedFrames = 0;
 
-        const frameFile = path.join(tempDir, `frame-${String(index + 1).padStart(6, '0')}.png`);
-        await page.screenshot({ path: frameFile as `${string}.png`, type: 'png', fullPage: false });
-        console.log(`Captured frame ${index + 1}/${totalFrames} (${commit.slice(0, 7)})`);
+      for (let index = 0; index < requestedFrames; index += 1) {
+        const commit = commitsToRender[index];
+        const frameNumber = capturedFrames + 1;
+        const frameFile = path.join(tempDir, `frame-${String(frameNumber).padStart(6, '0')}.png`);
+
+        try {
+          const frameUrl = `${baseUrl}/?ref=${encodeURIComponent(commit)}`;
+          await page.goto(frameUrl, {
+            waitUntil: 'networkidle0',
+            timeout: VIDEO_NAVIGATION_TIMEOUT_MS
+          });
+          await page.waitForSelector('.radial-tree svg', { timeout: VIDEO_WAIT_TIMEOUT_MS });
+          await page.waitForFunction(
+            () => document.querySelectorAll('.radial-tree__link').length > 0,
+            { timeout: VIDEO_WAIT_TIMEOUT_MS }
+          );
+
+          await page.screenshot({ path: frameFile as `${string}.png`, type: 'png', fullPage: false });
+          capturedFrames += 1;
+          console.log(`Captured frame ${capturedFrames}/${requestedFrames} (${commit.slice(0, 7)})`);
+        } catch (error) {
+          if (error instanceof TimeoutError) {
+            skippedFrames += 1;
+            console.warn(
+              `Skipped frame ${index + 1}/${requestedFrames} (${commit.slice(0, 7)}) due to timeout: ${error.message}`
+            );
+            continue;
+          }
+          throw error;
+        }
+      }
+
+      if (capturedFrames === 0) {
+        console.error('No frames were captured; aborting video generation');
+        process.exitCode = 1;
+        return;
+      }
+
+      if (skippedFrames > 0) {
+        console.warn(`Skipped ${skippedFrames} frame(s) due to timeouts`);
       }
 
       const ffmpegExecutable = getFfmpegExecutable();
@@ -495,7 +522,7 @@ const videoAction = async (options: VideoOptions) => {
       ];
 
       await runProcess(ffmpegExecutable, ffmpegArgs, { cwd: tempDir });
-      console.log(`Saved video (${totalFrames} frames @ ${fpsValue} fps) to ${videoPath}`);
+      console.log(`Saved video (${capturedFrames} frames @ ${fpsValue} fps) to ${videoPath}`);
       success = true;
     } finally {
       await Promise.allSettled([browser?.close(), closeServer(server)]);
