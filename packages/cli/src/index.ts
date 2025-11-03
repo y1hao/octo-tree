@@ -11,8 +11,9 @@ import { GitRepositoryError } from '@octotree/core';
 const program = new Command();
 
 const DEFAULT_PORT = 3000;
-const SCREENSHOT_WIDTH = 1920;
-const SCREENSHOT_HEIGHT = Math.round((SCREENSHOT_WIDTH * 3) / 4); // 4:3 aspect ratio
+const DEFAULT_WIDTH = 1440;
+const DEFAULT_ASPECT_X = 4;
+const DEFAULT_ASPECT_Y = 3;
 
 interface ServeOptions {
   repo?: string;
@@ -23,6 +24,8 @@ interface ScreenshotOptions {
   repo?: string;
   port?: string;
   output?: string;
+  width?: string;
+  aspect?: string;
 }
 
 const serveAction = async (options: ServeOptions) => {
@@ -72,6 +75,34 @@ const getServerPort = (server: http.Server): number => {
   throw new Error('Failed to determine server port');
 };
 
+const parseWidth = (rawWidth: string | undefined): number | null => {
+  if (!rawWidth) {
+    return DEFAULT_WIDTH;
+  }
+  const width = Number(rawWidth);
+  if (Number.isNaN(width) || width <= 0) {
+    return null;
+  }
+  return Math.round(width);
+};
+
+const parseAspect = (rawAspect: string | undefined): { x: number; y: number } | null => {
+  if (!rawAspect) {
+    return { x: DEFAULT_ASPECT_X, y: DEFAULT_ASPECT_Y };
+  }
+  const parts = rawAspect.split(':');
+  if (parts.length !== 2) {
+    return null;
+  }
+  const [xPart, yPart] = parts;
+  const x = Number(xPart);
+  const y = Number(yPart);
+  if (Number.isNaN(x) || Number.isNaN(y) || x <= 0 || y <= 0) {
+    return null;
+  }
+  return { x: Math.round(x), y: Math.round(y) };
+};
+
 const screenshotAction = async (options: ScreenshotOptions) => {
   const repoPath = path.resolve(options.repo ?? process.cwd());
   const outputPath = path.resolve(options.output ?? 'octo-tree.png');
@@ -82,6 +113,22 @@ const screenshotAction = async (options: ScreenshotOptions) => {
     process.exitCode = 1;
     return;
   }
+
+  const width = parseWidth(options.width);
+  if (width == null) {
+    console.error('Width must be a positive number');
+    process.exitCode = 1;
+    return;
+  }
+
+  const aspect = parseAspect(options.aspect);
+  if (!aspect) {
+    console.error('Aspect ratio must be provided in the form x:y with positive numbers');
+    process.exitCode = 1;
+    return;
+  }
+
+  const height = Math.round((width * aspect.y) / aspect.x);
 
   let server: http.Server | null = null;
   let browser: Browser | null = null;
@@ -94,7 +141,7 @@ const screenshotAction = async (options: ScreenshotOptions) => {
 
     browser = await puppeteer.launch({ headless: true });
     const page = await browser.newPage();
-    await page.setViewport({ width: SCREENSHOT_WIDTH, height: SCREENSHOT_HEIGHT, deviceScaleFactor: 1 });
+    await page.setViewport({ width, height, deviceScaleFactor: 2 });
     await page.goto(url, { waitUntil: 'networkidle0' });
     await page.waitForSelector('.radial-tree svg', { timeout: 20000 });
     await page.waitForFunction(
@@ -106,12 +153,15 @@ const screenshotAction = async (options: ScreenshotOptions) => {
     const finalOutputPath = outputPath.toLowerCase().endsWith('.png')
       ? outputPath
       : `${outputPath}.png`;
-    await page.screenshot({
+    const screenshotOptions = {
       path: finalOutputPath as `${string}.png`,
-      type: 'png',
+      type: 'png' as const,
       fullPage: false
-    });
-    console.log(`Saved screenshot to ${finalOutputPath}`);
+    };
+    await page.screenshot(screenshotOptions);
+    console.log(
+      `Saved ${width}x${height} (CSS px) screenshot to ${finalOutputPath} (device scale factor 2)`
+    );
   } catch (error) {
     if (error instanceof GitRepositoryError) {
       console.error(error.message);
@@ -144,8 +194,14 @@ program
   .option('-r, --repo <path>', 'Path to the repository to visualize', process.cwd())
   .option('-p, --port <number>', 'Port to run the web server on (0 selects a random open port)', '0')
   .option('-o, --output <path>', 'Output path for the PNG file', 'octo-tree.png')
+  .option('-w, --width <number>', 'Horizontal side length in CSS pixels', DEFAULT_WIDTH.toString())
+  .option(
+    '-a, --aspect <ratio>',
+    `Aspect ratio for width:height (format x:y)`,
+    `${DEFAULT_ASPECT_X}:${DEFAULT_ASPECT_Y}`
+  )
   .action(async (options) => {
-    await screenshotAction(options as { repo?: string; port?: string; output?: string });
+    await screenshotAction(options as ScreenshotOptions);
   });
 
 program.parseAsync(process.argv);

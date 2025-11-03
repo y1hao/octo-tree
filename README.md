@@ -45,8 +45,10 @@ Options:
 - `--repo` defaults to the current working directory.
 - `--output` defaults to `octo-tree.png` (auto-appends `.png` if missing).
 - `--port` defaults to `0`, so an open port is allocated automatically.
+- `--width` defaults to `1440` CSS pixels (3/4 of the serve viewport width).
+- `--aspect` defaults to `4:3` (format `x:y`).
 
-The generated PNG uses a 4:3 aspect ratio with a 1920px width (1440px height).
+The PNG is rendered at the requested CSS width/height with a device scale factor of `2`, so the output bitmap is twice as dense as the viewport dimensions.
 
 Large repositories are supported—the tree builder streams `git ls-files` output to avoid buffer limits.
 
