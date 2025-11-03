@@ -21,16 +21,6 @@ const formatCount = (value: number | null | undefined, label: string): string =>
   return `${value.toLocaleString()} ${label}`;
 };
 
-const formatBytes = (bytes: number): string => {
-  if (!bytes) {
-    return '0 B';
-  }
-  const units = ['B', 'KB', 'MB', 'GB', 'TB'];
-  const magnitude = Math.min(Math.floor(Math.log(bytes) / Math.log(1024)), units.length - 1);
-  const value = bytes / Math.pow(1024, magnitude);
-  return `${value.toFixed(value >= 10 || magnitude === 0 ? 0 : 1)} ${units[magnitude]}`;
-};
-
 const appendRefQuery = (endpoint: string): string => {
   if (typeof window === 'undefined') {
     return endpoint;
@@ -82,27 +72,6 @@ export const App: React.FC = () => {
       setError(err instanceof Error ? err.message : 'Unknown error fetching tree.');
     } finally {
       setLoading(false);
-    }
-  }, []);
-
-  const refreshTreeData = useCallback(async () => {
-    setRefreshing(true);
-    setError(null);
-    try {
-      const {
-        tree: refreshedTree,
-        lastUpdated: updated,
-        gitStats: stats
-      } = await fetchTree('/api/tree/refresh', {
-        method: 'POST'
-      });
-      setTree(refreshedTree);
-      setLastUpdated(updated);
-      setGitStats(stats ?? null);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Unknown error refreshing tree.');
-    } finally {
-      setRefreshing(false);
     }
   }, []);
 
