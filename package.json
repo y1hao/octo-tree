@@ -9,6 +9,9 @@
     "build:web": "npm run build --workspace @octotree/web",
     "test": "npm run test --workspaces --if-present"
   },
+  "devDependencies": {
+    "vitest": "^1.6.0"
+  },
   "workspaces": [
     "packages/*"
   ]
