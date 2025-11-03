@@ -33,6 +33,11 @@ interface GitStats {
   latestCommitTimestamp: number | null;
 }
 
+interface AppDependencies {
+  buildRepositoryTreeFn?: typeof buildRepositoryTree;
+  collectGitStatsFn?: typeof collectGitStats;
+}
+
 const runGitCommand = (repoPath: string, args: string[]): Promise<string> => {
   return new Promise((resolve, reject) => {
     const child = spawn('git', args, { cwd: repoPath });
@@ -102,13 +107,17 @@ const resolveStaticAssets = (): { root: string; indexPath: string } => {
 const createApp = (
   repoPath: string,
   defaultRef: string,
-  allowFallbackToWorkingTree: boolean
+  allowFallbackToWorkingTree: boolean,
+  dependencies: AppDependencies = {}
 ): AppInstance => {
   const app = express();
   app.use(express.json());
 
   const buildPromises = new Map<string, Promise<TreeNode>>();
   let defaultRefLastUpdated = 0;
+
+  const buildTree = dependencies.buildRepositoryTreeFn ?? buildRepositoryTree;
+  const collectStats = dependencies.collectGitStatsFn ?? collectGitStats;
 
   const resolveRef = (requestedRef?: string): {
     key: string;
@@ -129,7 +138,7 @@ const createApp = (
     const { key, refForBuild, allowFallback } = resolveRef(requestedRef);
     let promise = buildPromises.get(key);
     if (!promise) {
-      promise = buildRepositoryTree({
+      promise = buildTree({
         repoPath,
         ref: refForBuild,
         allowFallbackToWorkingTree: allowFallback
@@ -144,7 +153,7 @@ const createApp = (
       buildPromises.delete(key);
     }
 
-    const gitStats = await collectGitStats(repoPath, refForBuild);
+    const gitStats = await collectStats(repoPath, refForBuild);
     const entry: CacheEntry = {
       tree,
       lastUpdated: Date.now(),
@@ -266,3 +275,4 @@ export const startServer = async ({
 
 export { createApp };
 export type { TreeNode };
+export type { AppDependencies };
