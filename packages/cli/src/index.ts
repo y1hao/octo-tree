@@ -56,6 +56,8 @@ interface VideoOptions {
   aspect?: string;
   fps?: string;
   maxSeconds?: string;
+  from?: string;
+  to?: string;
 }
 
 const serveAction = async (options: ServeOptions) => {
@@ -133,6 +135,20 @@ const parseAspect = (rawAspect: string | undefined): { x: number; y: number } | 
     return null;
   }
   return { x: Math.round(x), y: Math.round(y) };
+};
+
+const parseCommitBound = (
+  rawValue: string | undefined,
+  flag: '--from' | '--to'
+): { value?: number; error?: string } => {
+  if (rawValue == null) {
+    return { value: undefined };
+  }
+  const parsed = Number(rawValue);
+  if (!Number.isInteger(parsed) || parsed <= 0) {
+    return { error: `${flag} must be a positive integer` };
+  }
+  return { value: parsed };
 };
 
 interface CaptureOptions {
@@ -368,6 +384,20 @@ const videoAction = async (options: VideoOptions) => {
 
   const frameBudget = Math.max(1, Math.round(fpsValue * maxSecondsValue));
 
+  const fromResult = parseCommitBound(options.from, '--from');
+  if (fromResult.error) {
+    console.error(fromResult.error);
+    process.exitCode = 1;
+    return;
+  }
+
+  const toResult = parseCommitBound(options.to, '--to');
+  if (toResult.error) {
+    console.error(toResult.error);
+    process.exitCode = 1;
+    return;
+  }
+
   try {
     const commits = await listCommitsForBranch(repoPath);
     if (commits.length === 0) {
@@ -376,11 +406,42 @@ const videoAction = async (options: VideoOptions) => {
       return;
     }
 
-    const commitsToRender = sampleCommits(commits, frameBudget);
+    const fromIndex = fromResult.value ?? 1;
+    const toIndex = toResult.value ?? commits.length;
+
+    if (fromIndex > commits.length) {
+      console.error(`--from (${fromIndex}) exceeds total number of commits (${commits.length})`);
+      process.exitCode = 1;
+      return;
+    }
+
+    if (toIndex > commits.length) {
+      console.error(`--to (${toIndex}) exceeds total number of commits (${commits.length})`);
+      process.exitCode = 1;
+      return;
+    }
+
+    if (fromIndex > toIndex) {
+      console.error('--from cannot be greater than --to');
+      process.exitCode = 1;
+      return;
+    }
+
+    const commitsInRange = commits.slice(fromIndex - 1, toIndex);
+    if (commitsInRange.length === 0) {
+      console.error('No commits found in the specified range');
+      process.exitCode = 1;
+      return;
+    }
+
+    const commitsToRender = sampleCommits(commitsInRange, frameBudget);
     const totalFrames = commitsToRender.length;
 
-    console.log(
-      `Rendering ${totalFrames} frames (${fpsValue} fps) sampled from ${commits.length} commits`);
+    const rangeLabel = fromIndex === 1 && toIndex === commits.length
+      ? `${commits.length} commits`
+      : `${commitsInRange.length} commits (range ${fromIndex}-${toIndex} of ${commits.length})`;
+
+    console.log(`Rendering ${totalFrames} frames (${fpsValue} fps) sampled from ${rangeLabel}`);
 
     const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'octo-tree-video-'));
     const videoPath = ensureMp4Path(outputPath);
@@ -492,6 +553,8 @@ program
   )
   .option('--fps <number>', 'Frames per second of the output video', '10')
   .option('--max-seconds <number>', 'Maximum length of the video in seconds', '60')
+  .option('--from <number>', 'Start rendering from this commit index (1-indexed)')
+  .option('--to <number>', 'Stop rendering at this commit index (1-indexed)')
   .action(async (options) => {
     await videoAction(options as VideoOptions);
   });
