@@ -73,6 +73,7 @@ Options:
 - `--width` defaults to `1440` CSS pixels; `--aspect` defaults to `4:3`.
 - `--fps` defaults to `10` frames per second.
 - `--max-seconds` defaults to `60`; frames are uniformly sampled to keep within `fps × max-seconds`.
+- `--from` / `--to` bound the commits considered (1-indexed, inclusive). If omitted they default to the first and last commit respectively, while the UI still shows cumulative commit counts.
 
 The command captures PNG frames for each sampled commit (oldest → newest) and stitches them into an MP4 using the bundled ffmpeg binary.
 
