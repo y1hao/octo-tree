@@ -443,11 +443,9 @@ export const buildRepositoryTree = async ({
   const nodeMap = new Map<string, TreeNode>();
   nodeMap.set(relativeRootPath, rootNode);
 
-  let builtFromRef = false;
   let commitTimestampMs: number | null = null;
   try {
     commitTimestampMs = await buildTreeFromCommit(repoRoot, rootNode, nodeMap, targetRef);
-    builtFromRef = true;
   } catch (error) {
     if (
       !(error instanceof GitRepositoryError) ||
@@ -459,14 +457,10 @@ export const buildRepositoryTree = async ({
     await buildTreeFromWorkingTree(repoRoot, rootNode, nodeMap);
   }
 
-  if (!builtFromRef) {
-    // Working tree build — nothing extra required.
-  }
-
   sortChildrenRecursively(rootNode);
   aggregateDirectoryMetadata(rootNode);
 
-  if (builtFromRef && commitTimestampMs) {
+  if (commitTimestampMs) {
     rootNode.mtimeMs = commitTimestampMs;
   }
 
