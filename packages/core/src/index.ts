@@ -141,12 +141,13 @@ const listGitManagedFiles = async (repoPath: string): Promise<string[]> => {
   });
 };
 
-const ensureChild = (parent: TreeNode, child: TreeNode): TreeNode => {
-  const existing = parent.children.find((node) => node.id === child.id);
+const ensureChild = (parent: TreeNode, child: TreeNode, childIdMap: Map<string, TreeNode>): TreeNode => {
+  const existing = childIdMap.get(child.id);
   if (existing) {
     return existing;
   }
   parent.children.push(child);
+  childIdMap.set(child.id, child);
   return child;
 };
 
@@ -242,13 +243,12 @@ const resolveGitRef = async (repoPath: string, ref: string): Promise<ResolvedRef
   }
 
   if (objectType === 'tag') {
-    const commitHash = (
-      await runGitCommand(repoPath, ['rev-parse', '--verify', `${resolvedRef}^{commit}`])
-    ).trim();
-    const treeHash = (
-      await runGitCommand(repoPath, ['rev-parse', '--verify', `${commitHash}^{tree}`])
-    ).trim();
-    return { treeHash, commitHash };
+    // Parallelize: get commit and tree hash simultaneously from tag
+    const [commitHash, treeHash] = await Promise.all([
+      runGitCommand(repoPath, ['rev-parse', '--verify', `${resolvedRef}^{commit}`]),
+      runGitCommand(repoPath, ['rev-parse', '--verify', `${resolvedRef}^{tree}`])
+    ]);
+    return { treeHash: treeHash.trim(), commitHash: commitHash.trim() };
   }
 
   if (objectType === 'tree') {
@@ -314,6 +314,7 @@ const getCommitTimestampMs = async (repoPath: string, commitHash: string): Promi
 const insertFileNode = (
   rootNode: TreeNode,
   nodeMap: Map<string, TreeNode>,
+  childIdMap: Map<string, TreeNode>,
   gitPath: string,
   size: number,
   mtimeMs: number
@@ -330,13 +331,13 @@ const insertFileNode = (
     if (isLeaf) {
       const fileNode = createFileNode(nextPath, segment, parentNode.depth + 1, size, mtimeMs);
       nodeMap.set(nextPath, fileNode);
-      ensureChild(parentNode, fileNode);
+      ensureChild(parentNode, fileNode, childIdMap);
     } else {
       let directoryNode = nodeMap.get(nextPath);
       if (!directoryNode) {
         directoryNode = createDirectoryNode(nextPath, segment, parentNode.depth + 1, mtimeMs);
         nodeMap.set(nextPath, directoryNode);
-        ensureChild(parentNode, directoryNode);
+        ensureChild(parentNode, directoryNode, childIdMap);
       }
       parentNode = directoryNode;
       currentPath = nextPath;
@@ -347,72 +348,83 @@ const insertFileNode = (
 const buildTreeFromWorkingTree = async (
   repoRoot: string,
   rootNode: TreeNode,
-  nodeMap: Map<string, TreeNode>
+  nodeMap: Map<string, TreeNode>,
+  childIdMap: Map<string, TreeNode>
 ): Promise<void> => {
   const gitManagedFiles = await listGitManagedFiles(repoRoot);
 
-  await Promise.all(
+  // Collect file stats first, then build tree structure
+  const fileStats = await Promise.all(
     gitManagedFiles.map(async (gitPath) => {
-      const segments = gitPath.split('/');
-      let currentPath = '.';
-      let parentNode = rootNode;
-
-      for (let index = 0; index < segments.length; index += 1) {
-        const segment = segments[index];
-        const isLeaf = index === segments.length - 1;
-        const nextPath = joinRelative(currentPath, segment);
-
-        if (isLeaf) {
-          const absoluteFilePath = path.join(repoRoot, gitPath);
-          let fileStats: Stats;
-          try {
-            fileStats = await fs.stat(absoluteFilePath);
-          } catch (error) {
-            if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
-              return;
-            }
-            throw error;
-          }
-
-          const fileNode = createFileNode(
-            nextPath,
-            segment,
-            parentNode.depth + 1,
-            fileStats.size,
-            fileStats.mtimeMs
-          );
-          nodeMap.set(nextPath, fileNode);
-          ensureChild(parentNode, fileNode);
-        } else {
-          let directoryNode = nodeMap.get(nextPath);
-          if (!directoryNode) {
-            directoryNode = createDirectoryNode(nextPath, segment, parentNode.depth + 1);
-            nodeMap.set(nextPath, directoryNode);
-            ensureChild(parentNode, directoryNode);
-          }
-          parentNode = directoryNode;
-          currentPath = nextPath;
+      const absoluteFilePath = path.join(repoRoot, gitPath);
+      try {
+        const stats = await fs.stat(absoluteFilePath);
+        return { gitPath, stats };
+      } catch (error) {
+        if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
+          return null;
         }
+        throw error;
       }
     })
   );
+
+  // Build tree structure synchronously after stats are collected
+  for (const entry of fileStats) {
+    if (!entry) continue;
+    const { gitPath, stats } = entry;
+    const segments = gitPath.split('/');
+    let currentPath = '.';
+    let parentNode = rootNode;
+
+    for (let index = 0; index < segments.length; index += 1) {
+      const segment = segments[index];
+      const isLeaf = index === segments.length - 1;
+      const nextPath = joinRelative(currentPath, segment);
+
+      if (isLeaf) {
+        const fileNode = createFileNode(
+          nextPath,
+          segment,
+          parentNode.depth + 1,
+          stats.size,
+          stats.mtimeMs
+        );
+        nodeMap.set(nextPath, fileNode);
+        ensureChild(parentNode, fileNode, childIdMap);
+      } else {
+        let directoryNode = nodeMap.get(nextPath);
+        if (!directoryNode) {
+          directoryNode = createDirectoryNode(nextPath, segment, parentNode.depth + 1, stats.mtimeMs);
+          nodeMap.set(nextPath, directoryNode);
+          ensureChild(parentNode, directoryNode, childIdMap);
+        }
+        parentNode = directoryNode;
+        currentPath = nextPath;
+      }
+    }
+  }
 };
 
 const buildTreeFromCommit = async (
   repoRoot: string,
   rootNode: TreeNode,
   nodeMap: Map<string, TreeNode>,
+  childIdMap: Map<string, TreeNode>,
   ref: string
 ): Promise<number | null> => {
   const { treeHash, commitHash } = await resolveGitRef(repoRoot, ref);
-  const entries = await listFilesAtTree(repoRoot, treeHash);
-  const commitTimestampMs = commitHash
-    ? await getCommitTimestampMs(repoRoot, commitHash).catch(() => null)
-    : null;
+  
+  // Parallelize: get entries and commit timestamp simultaneously
+  const [entries, commitTimestampMs] = await Promise.all([
+    listFilesAtTree(repoRoot, treeHash),
+    commitHash ? getCommitTimestampMs(repoRoot, commitHash).catch(() => null) : Promise.resolve(null)
+  ]);
+  
   const mtimeMs = commitTimestampMs ?? 0;
 
   for (const entry of entries) {
-    insertFileNode(rootNode, nodeMap, entry.path, entry.size, mtimeMs);
+    insertFileNode(rootNode, nodeMap, childIdMap, entry.path, entry.size, mtimeMs);
   }
   return commitTimestampMs ?? null;
 };
@@ -431,11 +443,13 @@ export const buildRepositoryTree = async ({
   const rootNode = createDirectoryNode(relativeRootPath, repoName, 0);
 
   const nodeMap = new Map<string, TreeNode>();
+  const childIdMap = new Map<string, TreeNode>();
   nodeMap.set(relativeRootPath, rootNode);
+  childIdMap.set(rootNode.id, rootNode);
 
   let commitTimestampMs: number | null = null;
   try {
-    commitTimestampMs = await buildTreeFromCommit(repoRoot, rootNode, nodeMap, targetRef);
+    commitTimestampMs = await buildTreeFromCommit(repoRoot, rootNode, nodeMap, childIdMap, targetRef);
   } catch (error) {
     if (
       !(error instanceof GitRepositoryError) ||
@@ -444,7 +458,7 @@ export const buildRepositoryTree = async ({
     ) {
       throw error;
     }
-    await buildTreeFromWorkingTree(repoRoot, rootNode, nodeMap);
+    await buildTreeFromWorkingTree(repoRoot, rootNode, nodeMap, childIdMap);
   }
 
   sortChildrenRecursively(rootNode);
