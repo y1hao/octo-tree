@@ -16,16 +16,6 @@ export interface TreeNode {
   children: TreeNode[];
 }
 
-export interface PolarLayout {
-  radius: number;
-  angle: number;
-  span: number;
-}
-
-export interface TreeNodeWithLayout extends TreeNode {
-  layout?: PolarLayout;
-}
-
 export interface BuildTreeOptions {
   repoPath: string;
   ref?: string;
