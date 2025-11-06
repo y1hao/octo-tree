@@ -13,7 +13,7 @@ describe('tree-builder', () => {
           'file1.txt': 'content1',
           'sub/file2.txt': 'content2'
         });
-        await createCommit(repoPath, 'initial');
+        createCommit(repoPath, 'initial');
 
         const { rootNode, nodeMap, childIdMap } = createTestTreeStructure();
         const timestamp = await buildTreeFromCommit(repoPath, rootNode, nodeMap, childIdMap, 'HEAD');
@@ -28,7 +28,7 @@ describe('tree-builder', () => {
     it('handles tree hash directly', async () => {
       await withRepo(async (repoPath) => {
         await createTestFiles(repoPath, { 'test.txt': 'content' });
-        await createCommit(repoPath, 'initial');
+        createCommit(repoPath, 'initial');
         const treeHash = getGitHash(repoPath, 'HEAD^{tree}');
 
         const { rootNode, nodeMap, childIdMap } = createTestTreeStructure();

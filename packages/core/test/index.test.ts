@@ -14,7 +14,7 @@ describe('index', () => {
           'src/index.ts': 'console.log("hi");\n',
           'README.md': '# Test Repo\n'
         });
-        await createCommit(repoPath, 'initial');
+        createCommit(repoPath, 'initial');
 
         const tree = await buildRepositoryTree({ repoPath, ref: 'HEAD' });
 
@@ -59,10 +59,10 @@ describe('index', () => {
     it('builds tree from a specific branch', async () => {
       await withRepo(async (repoPath) => {
         await createTestFiles(repoPath, { 'file1.txt': 'content1' });
-        await createCommit(repoPath, 'initial');
+        createCommit(repoPath, 'initial');
         execSync('git checkout -b feature', { cwd: repoPath, stdio: 'ignore' });
         await createTestFiles(repoPath, { 'file2.txt': 'content2' });
-        await createCommit(repoPath, 'feature commit');
+        createCommit(repoPath, 'feature commit');
 
         const tree = await buildRepositoryTree({ repoPath, ref: 'feature' });
 
@@ -75,8 +75,8 @@ describe('index', () => {
     it('builds tree from a tag', async () => {
       await withRepo(async (repoPath) => {
         await createTestFiles(repoPath, { 'file.txt': 'content' });
-        await createCommit(repoPath, 'initial');
-        await createTag(repoPath, 'v1.0.0', 'Version 1.0.0');
+        createCommit(repoPath, 'initial');
+        createTag(repoPath, 'v1.0.0', 'Version 1.0.0');
 
         const tree = await buildRepositoryTree({ repoPath, ref: 'v1.0.0' });
 
@@ -88,7 +88,7 @@ describe('index', () => {
     it('builds tree from a tree hash', async () => {
       await withRepo(async (repoPath) => {
         await createTestFiles(repoPath, { 'file.txt': 'content' });
-        await createCommit(repoPath, 'initial');
+        createCommit(repoPath, 'initial');
         const treeHash = getGitHash(repoPath, 'HEAD^{tree}');
 
         const tree = await buildRepositoryTree({ repoPath, ref: treeHash });
@@ -101,7 +101,7 @@ describe('index', () => {
     it('handles deep directory structures', async () => {
       await withRepo(async (repoPath) => {
         await createTestFiles(repoPath, { 'a/b/c/d/file.txt': 'content' });
-        await createCommit(repoPath, 'initial');
+        createCommit(repoPath, 'initial');
 
         const tree = await buildRepositoryTree({ repoPath });
 
@@ -127,7 +127,7 @@ describe('index', () => {
           'file1.txt': 'content1',
           'sub/file2.txt': 'content2'
         });
-        await createCommit(repoPath, 'initial');
+        createCommit(repoPath, 'initial');
 
         const tree = await buildRepositoryTree({ repoPath });
 
@@ -147,7 +147,7 @@ describe('index', () => {
           'z-dir/file.txt': 'content',
           'a-dir/file.txt': 'content'
         });
-        await createCommit(repoPath, 'initial');
+        createCommit(repoPath, 'initial');
 
         const tree = await buildRepositoryTree({ repoPath });
 
@@ -170,7 +170,7 @@ describe('index', () => {
     it('throws error for invalid ref when fallback is disabled', async () => {
       await withRepo(async (repoPath) => {
         await createTestFiles(repoPath, { 'file.txt': 'content' });
-        await createCommit(repoPath, 'initial');
+        createCommit(repoPath, 'initial');
 
         await expect(
           buildRepositoryTree({ repoPath, ref: 'nonexistent-branch' })

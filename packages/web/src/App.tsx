@@ -54,9 +54,7 @@ const fetchTree = async (endpoint: string, init?: RequestInit): Promise<TreeResp
 
 export const App: React.FC = () => {
   const [tree, setTree] = useState<TreeNode | null>(null);
-  const [lastUpdated, setLastUpdated] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [gitStats, setGitStats] = useState<GitStats | null>(null);
 
@@ -85,9 +83,8 @@ export const App: React.FC = () => {
     setLoading(true);
     setError(null);
     try {
-      const { tree: fetchedTree, lastUpdated: updated, gitStats: stats } = await fetchTree('/api/tree');
+      const { tree: fetchedTree, gitStats: stats } = await fetchTree('/api/tree');
       setTree(fetchedTree);
-      setLastUpdated(updated);
       setGitStats(stats ?? null);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Unknown error fetching tree.');

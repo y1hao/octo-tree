@@ -1,15 +1,27 @@
 {
   "name": "octo-tree",
   "version": "0.0.1",
+  "type": "module",
   "private": true,
   "description": "Radial file tree visualization for git repositories.",
   "scripts": {
     "build": "npm run build:backend && npm run build:web",
     "build:backend": "npx tsc -b",
     "build:web": "npm run build --workspace @octotree/web",
-    "test": "npm run test --workspaces --if-present"
+    "test": "npm run test --workspaces --if-present",
+    "lint": "eslint packages/**/src packages/**/test",
+    "lint:fix": "eslint packages/**/src packages/**/test --fix"
   },
   "devDependencies": {
+    "@eslint/js": "^9.39.1",
+    "@typescript-eslint/eslint-plugin": "^8.46.3",
+    "@typescript-eslint/parser": "^8.46.3",
+    "eslint": "^9.39.1",
+    "eslint-plugin-react": "^7.37.5",
+    "eslint-plugin-react-hooks": "^7.0.1",
+    "eslint-plugin-vitest": "^0.5.4",
+    "globals": "^16.5.0",
+    "typescript-eslint": "^8.46.3",
     "vitest": "^1.6.0"
   },
   "workspaces": [

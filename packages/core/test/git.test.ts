@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { promises as fs } from 'fs';
 import { realpathSync } from 'fs';
+import os from 'os';
 import path from 'path';
 import { execSync } from 'child_process';
 import {
@@ -44,7 +45,7 @@ describe('git', () => {
     });
 
     it('throws GitRepositoryError for non-git directory', async () => {
-      const tempDir = await fs.mkdtemp(path.join(require('os').tmpdir(), 'not-git-'));
+      const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'not-git-'));
       try {
         await expect(resolveRepoRoot(tempDir)).rejects.toBeInstanceOf(GitRepositoryError);
       } finally {
@@ -87,7 +88,7 @@ describe('git', () => {
     it('resolves HEAD commit', async () => {
       await withRepo(async (repoPath) => {
         await createTestFiles(repoPath, { 'test.txt': 'content' });
-        await createCommit(repoPath, 'initial');
+        createCommit(repoPath, 'initial');
 
         const resolved = await resolveGitRef(repoPath, 'HEAD');
         expect(resolved.commitHash).toBeTruthy();
@@ -99,8 +100,8 @@ describe('git', () => {
     it('resolves a tag to commit and tree', async () => {
       await withRepo(async (repoPath) => {
         await createTestFiles(repoPath, { 'test.txt': 'content' });
-        await createCommit(repoPath, 'initial');
-        await createTag(repoPath, 'v1.0.0', 'Version 1.0.0');
+        createCommit(repoPath, 'initial');
+        createTag(repoPath, 'v1.0.0', 'Version 1.0.0');
 
         const resolved = await resolveGitRef(repoPath, 'v1.0.0');
         expect(resolved.commitHash).toBeTruthy();
@@ -111,7 +112,7 @@ describe('git', () => {
     it('resolves a tree hash directly', async () => {
       await withRepo(async (repoPath) => {
         await createTestFiles(repoPath, { 'test.txt': 'content' });
-        await createCommit(repoPath, 'initial');
+        createCommit(repoPath, 'initial');
         const treeHash = getGitHash(repoPath, 'HEAD^{tree}');
 
         const resolved = await resolveGitRef(repoPath, treeHash);
@@ -136,7 +137,7 @@ describe('git', () => {
           'file1.txt': 'content1',
           'sub/file2.txt': 'content2'
         });
-        await createCommit(repoPath, 'initial');
+        createCommit(repoPath, 'initial');
 
         const treeHash = getGitHash(repoPath, 'HEAD^{tree}');
         const entries = await listFilesAtTree(repoPath, treeHash);
@@ -151,7 +152,7 @@ describe('git', () => {
       await withRepo(async (repoPath) => {
         const content = 'test content';
         await createTestFiles(repoPath, { 'test.txt': content });
-        await createCommit(repoPath, 'initial');
+        createCommit(repoPath, 'initial');
 
         const treeHash = getGitHash(repoPath, 'HEAD^{tree}');
         const entries = await listFilesAtTree(repoPath, treeHash);
@@ -166,7 +167,7 @@ describe('git', () => {
     it('returns commit timestamp in milliseconds', async () => {
       await withRepo(async (repoPath) => {
         await createTestFiles(repoPath, { 'test.txt': 'content' });
-        await createCommit(repoPath, 'initial');
+        createCommit(repoPath, 'initial');
 
         const commitHash = getGitHash(repoPath, 'HEAD');
         const timestamp = await getCommitTimestampMs(repoPath, commitHash);

@@ -140,7 +140,9 @@ describe('createApp', () => {
 
     await handler(req, res);
 
+    // eslint-disable-next-line @typescript-eslint/unbound-method
     expect(res.status).toHaveBeenCalledWith(400);
+     
     expect(res.json).toHaveBeenCalledWith({ error: 'bad ref' });
   });
 });

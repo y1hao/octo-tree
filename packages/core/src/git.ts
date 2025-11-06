@@ -38,7 +38,7 @@ export const resolveRepoRoot = async (repoPath: string): Promise<string> => {
   try {
     const stdout = await runGitCommand(repoPath, ['rev-parse', '--show-toplevel']);
     return stdout.trim();
-  } catch (error) {
+  } catch {
     throw new GitRepositoryError(`Failed to locate git repository at ${repoPath}`);
   }
 };

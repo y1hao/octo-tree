@@ -6,7 +6,7 @@ import { execSync } from 'child_process';
 import type { TreeNode } from '../src/types';
 import { createDirectoryNode } from '../src/tree-node';
 
-export const initRepo = async (): Promise<string> => {
+export const initRepo = (): string => {
   const dir = mkdtempSync(path.join(os.tmpdir(), 'octotree-core-test-'));
   execSync('git init', { cwd: dir, stdio: 'ignore' });
   execSync('git config user.email "test@example.com"', { cwd: dir, stdio: 'ignore' });
@@ -18,12 +18,12 @@ export const cleanupRepo = async (repoPath: string): Promise<void> => {
   await fs.rm(repoPath, { recursive: true, force: true });
 };
 
-export const createCommit = async (repoPath: string, message: string): Promise<void> => {
+export const createCommit = (repoPath: string, message: string): void => {
   execSync('git add .', { cwd: repoPath, stdio: 'ignore' });
   execSync(`git commit -m "${message}"`, { cwd: repoPath, stdio: 'ignore' });
 };
 
-export const createTag = async (repoPath: string, tagName: string, message?: string): Promise<void> => {
+export const createTag = (repoPath: string, tagName: string, message?: string): void => {
   if (message) {
     execSync(`git tag -a ${tagName} -m "${message}"`, { cwd: repoPath, stdio: 'ignore' });
   } else {
@@ -37,7 +37,7 @@ export const createTag = async (repoPath: string, tagName: string, message?: str
 export const withRepo = async <T>(
   testFn: (repoPath: string) => Promise<T>
 ): Promise<T> => {
-  const repoPath = await initRepo();
+  const repoPath = initRepo();
   try {
     return await testFn(repoPath);
   } finally {

@@ -36,10 +36,10 @@ export const formatBytes = (bytes: number): string => {
   return `${value.toFixed(value >= 10 || magnitude === 0 ? 0 : 1)} ${units[magnitude]}`;
 };
 
-export const RadialTree: React.FC<RadialTreeProps> = ({ data, level }) => {
-  const startColor = { r: 21, g: 94, b: 51 }; // #015625
-  const endColor = { r: 209, g: 250, b: 229 }; // #e2fef0
+const START_COLOR = { r: 21, g: 94, b: 51 }; // #015625
+const END_COLOR = { r: 209, g: 250, b: 229 }; // #e2fef0
 
+export const RadialTree: React.FC<RadialTreeProps> = ({ data, level }) => {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const [tooltip, setTooltip] = useState<TooltipState | null>(null);
 
@@ -156,10 +156,10 @@ export const RadialTree: React.FC<RadialTreeProps> = ({ data, level }) => {
         const normalizedSize = Math.min(maxFileSize / denominator, 1);
         const interpolateChannel = (start: number, end: number) =>
           Math.round(start + (end - start) * normalizedSize);
-        const strokeColor = `rgb(${interpolateChannel(startColor.r, endColor.r)}, ${interpolateChannel(
-          startColor.g,
-          endColor.g
-        )}, ${interpolateChannel(startColor.b, endColor.b)})`;
+        const strokeColor = `rgb(${interpolateChannel(START_COLOR.r, END_COLOR.r)}, ${interpolateChannel(
+          START_COLOR.g,
+          END_COLOR.g
+        )}, ${interpolateChannel(START_COLOR.b, END_COLOR.b)})`;
 
         return {
           link,
@@ -169,7 +169,7 @@ export const RadialTree: React.FC<RadialTreeProps> = ({ data, level }) => {
         };
       })
       .sort((a, b) => a.normalizedSize - b.normalizedSize);
-  }, [root, maxDepth, maxFiles, maxFileSizeMap, sizePercentile, startColor, endColor]);
+  }, [root, maxDepth, maxFiles, maxFileSizeMap, sizePercentile]);
 
   const handleLinkHover = useCallback(
     (event: React.MouseEvent<SVGPathElement>, node: HierarchyPointNode<TreeNode>) => {
