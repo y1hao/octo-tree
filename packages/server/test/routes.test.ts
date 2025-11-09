@@ -3,7 +3,6 @@ import { GitRepositoryError } from '@octotree/core';
 import {
   extractRefParam,
   handleTreeRequest,
-  createHealthRoute,
   createTreeRoutes
 } from '../src/routes';
 import { createMockRequest, createMockResponse, createTree } from './utils';
@@ -111,23 +110,6 @@ describe('routes', () => {
 
       expect(handler).toHaveBeenCalledWith(undefined);
       expect(res.json).toHaveBeenCalledWith(entry);
-    });
-  });
-
-  describe('createHealthRoute', () => {
-    it('returns health status with repo path and last updated', () => {
-      const req = createMockRequest();
-      const res = createMockResponse();
-      const getLastUpdated = vi.fn().mockReturnValue(1234567890);
-      const route = createHealthRoute('/repo/path', getLastUpdated);
-
-      route(req, res);
-
-      expect(res.json).toHaveBeenCalledWith({
-        status: 'ok',
-        repoPath: '/repo/path',
-        lastUpdated: 1234567890
-      });
     });
   });
 

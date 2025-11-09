@@ -180,32 +180,6 @@ describe('app', () => {
       });
     });
 
-    it('sets up health route', async () => {
-      const tree = createTree();
-      buildRepositoryTreeMock.mockResolvedValueOnce(tree);
-      collectGitStatsMock.mockResolvedValue({ totalCommits: 1, latestCommitTimestamp: 1700000000000 });
-
-      const appInstance = createApp('/repo', 'HEAD', false, {
-        dependencies: {
-          buildRepositoryTreeFn: buildRepositoryTreeMock,
-          collectGitStatsFn: collectGitStatsMock
-        }
-      });
-
-      const handler = getRouteHandler(appInstance.app, '/health', 'get');
-      const req = createMockRequest();
-      const res = createMockResponse();
-
-      await appInstance.getTree(); // Trigger a build to set lastUpdated
-      await handler(req, res);
-
-      expect(res.json).toHaveBeenCalledWith({
-        status: 'ok',
-        repoPath: '/repo',
-        lastUpdated: expect.any(Number)
-      });
-    });
-
     it('applies level redirect middleware when level is provided', () => {
       const tree = createTree();
       buildRepositoryTreeMock.mockResolvedValueOnce(tree);
@@ -242,31 +216,6 @@ describe('app', () => {
       expect(appInstance.app).toBeDefined();
     });
 
-    it('updates defaultRefLastUpdated when building default ref', async () => {
-      const tree = createTree();
-      buildRepositoryTreeMock.mockResolvedValueOnce(tree);
-      collectGitStatsMock.mockResolvedValue({ totalCommits: 1, latestCommitTimestamp: 1700000000000 });
-
-      const appInstance = createApp('/repo', 'HEAD', false, {
-        dependencies: {
-          buildRepositoryTreeFn: buildRepositoryTreeMock,
-          collectGitStatsFn: collectGitStatsMock
-        }
-      });
-
-      const before = Date.now();
-      await appInstance.getTree();
-      const after = Date.now();
-
-      const handler = getRouteHandler(appInstance.app, '/health', 'get');
-      const req = createMockRequest();
-      const res = createMockResponse();
-      await handler(req, res);
-
-      const lastUpdated = (res.json as ReturnType<typeof vi.fn>).mock.calls[0][0].lastUpdated;
-      expect(lastUpdated).toBeGreaterThanOrEqual(before);
-      expect(lastUpdated).toBeLessThanOrEqual(after);
-    });
   });
 });
 

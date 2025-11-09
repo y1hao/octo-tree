@@ -30,16 +30,6 @@ export const handleTreeRequest = async (
   }
 };
 
-export const createHealthRoute = (repoPath: string, getLastUpdated: () => number) => {
-  return (_req: Request, res: Response) => {
-    res.json({
-      status: 'ok',
-      repoPath,
-      lastUpdated: getLastUpdated()
-    });
-  };
-};
-
 export const createTreeRoutes = (
   buildTreeForRef: (ref?: string) => Promise<CacheEntry>,
   refreshTreeForRef: (ref?: string) => Promise<CacheEntry>

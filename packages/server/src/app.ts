@@ -9,7 +9,7 @@ import type {
 import { collectGitStats } from './git';
 import { resolveStaticAssets } from './static-assets';
 import { createLevelRedirectMiddleware } from './middleware';
-import { createHealthRoute, createTreeRoutes } from './routes';
+import { createTreeRoutes } from './routes';
 
 export const createApp = (
   repoPath: string,
@@ -21,7 +21,6 @@ export const createApp = (
   app.use(express.json());
 
   const buildPromises = new Map<string, Promise<TreeNode>>();
-  let defaultRefLastUpdated = 0;
 
   const { dependencies = {}, level } = options;
 
@@ -69,9 +68,6 @@ export const createApp = (
       lastUpdated: Date.now(),
       gitStats
     };
-    if (key === defaultRef) {
-      defaultRefLastUpdated = entry.lastUpdated;
-    }
     return entry;
   };
 
@@ -82,8 +78,6 @@ export const createApp = (
   };
 
   // Setup routes
-  app.get('/health', createHealthRoute(repoPath, () => defaultRefLastUpdated));
-
   if (typeof level === 'number' && Number.isFinite(level) && level > 0) {
     app.use(createLevelRedirectMiddleware(level));
   }
