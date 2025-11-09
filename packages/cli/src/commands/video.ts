@@ -124,7 +124,7 @@ export const videoAction = async (options: VideoOptions) => {
       return;
     }
 
-    const commitsInRange = commits.slice(fromIndex - 1, toIndex);
+    const commitsInRange: string[] = commits.slice(fromIndex - 1, toIndex);
     if (commitsInRange.length === 0) {
       console.error('No commits found in the specified range');
       process.exitCode = 1;
