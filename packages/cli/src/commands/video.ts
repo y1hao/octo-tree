@@ -5,7 +5,7 @@ import path from 'path';
 import process from 'process';
 import puppeteer, { Browser, TimeoutError } from 'puppeteer';
 import { startServer } from '@octotree/server';
-import { GitRepositoryError, listCommitsForBranch } from '@octotree/core';
+import { GitRepositoryError, listCommitsForBranch, RADIAL_TREE_SVG_SELECTOR, RADIAL_TREE_LINK_SELECTOR } from '@octotree/core';
 import {
   DEFAULT_PORT,
   DEFAULT_DEVICE_SCALE,
@@ -163,9 +163,9 @@ export const videoAction = async (options: VideoOptions) => {
             waitUntil: 'networkidle0',
             timeout: VIDEO_NAVIGATION_TIMEOUT_MS
           });
-          await page.waitForSelector('.radial-tree svg', { timeout: VIDEO_WAIT_TIMEOUT_MS });
+          await page.waitForSelector(RADIAL_TREE_SVG_SELECTOR, { timeout: VIDEO_WAIT_TIMEOUT_MS });
           await page.waitForFunction(
-            () => document.querySelectorAll('.radial-tree__link').length > 0,
+            () => document.querySelectorAll(RADIAL_TREE_LINK_SELECTOR).length > 0,
             { timeout: VIDEO_WAIT_TIMEOUT_MS }
           );
 

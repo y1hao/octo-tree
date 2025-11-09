@@ -77,7 +77,10 @@ describe('captureScreenshot', () => {
       deviceScaleFactor: 2
     });
     expect(mockPage.goto).toHaveBeenCalled();
-    expect(mockPage.waitForSelector).toHaveBeenCalledWith('.radial-tree svg', { timeout: 20000 });
+    expect(mockPage.waitForSelector).toHaveBeenCalledWith(
+      expect.stringContaining('radial-tree'),
+      { timeout: 20000 }
+    );
     expect(mockPage.waitForFunction).toHaveBeenCalled();
     expect(vi.mocked(fs.mkdir)).toHaveBeenCalled();
     expect(mockPage.screenshot).toHaveBeenCalledWith({

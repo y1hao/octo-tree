@@ -7,6 +7,13 @@ import {
 } from 'd3-hierarchy';
 import { linkRadial } from 'd3-shape';
 import type { TreeNode } from '@octotree/core';
+import {
+  RADIAL_TREE_CONTAINER,
+  RADIAL_TREE_LINK_CLASS,
+  RADIAL_TREE_LEVELS_CLASS,
+  RADIAL_TREE_LINKS_CLASS,
+  RADIAL_TREE_TOOLTIP_CLASS
+} from '../selectors';
 
 interface RadialTreeProps {
   data: TreeNode;
@@ -190,7 +197,7 @@ export const RadialTree: React.FC<RadialTreeProps> = ({ data, level }) => {
   }, []);
 
   return (
-    <div className="radial-tree" ref={containerRef}>
+    <div className={RADIAL_TREE_CONTAINER} ref={containerRef}>
       <svg
         width={canvasSize}
         height={canvasSize}
@@ -200,7 +207,7 @@ export const RadialTree: React.FC<RadialTreeProps> = ({ data, level }) => {
         preserveAspectRatio="xMidYMid meet"
       >
         <g transform={`translate(${canvasSize / 2}, ${canvasSize / 2})`}>
-          <g className="radial-tree__levels" fill="none">
+          <g className={RADIAL_TREE_LEVELS_CLASS} fill="none">
             {depthLevels.map((levelRadius, index) => (
               <circle
                 key={index}
@@ -209,12 +216,12 @@ export const RadialTree: React.FC<RadialTreeProps> = ({ data, level }) => {
               />
             ))}
           </g>
-          <g className="radial-tree__links" fill="none">
+          <g className={RADIAL_TREE_LINKS_CLASS} fill="none">
             {linkRenderData.map(({ link, strokeWidth, strokeColor }) => (
               <path
                 key={link.target.data.id}
                 d={linkPath(link) ?? undefined}
-                className="radial-tree__link"
+                className={RADIAL_TREE_LINK_CLASS}
                 data-node-id={link.target.data.id}
                 strokeWidth={strokeWidth}
                 stroke={strokeColor}
@@ -228,7 +235,7 @@ export const RadialTree: React.FC<RadialTreeProps> = ({ data, level }) => {
       </svg>
       {tooltip && (
         <div
-          className="radial-tree__tooltip"
+          className={RADIAL_TREE_TOOLTIP_CLASS}
           style={{ top: tooltip.y, left: tooltip.x }}
           role="status"
         >

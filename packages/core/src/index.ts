@@ -61,3 +61,12 @@ export const buildRepositoryTree = async ({
 export type { TreeNode, BuildTreeOptions, NodeType, GitStats, RepositoryTree } from './types';
 export { GitRepositoryError } from './types';
 export { collectGitStats, listCommitsForBranch } from './git';
+export {
+  RADIAL_TREE_CONTAINER,
+  RADIAL_TREE_LINK_CLASS,
+  RADIAL_TREE_LEVELS_CLASS,
+  RADIAL_TREE_LINKS_CLASS,
+  RADIAL_TREE_TOOLTIP_CLASS,
+  RADIAL_TREE_SVG_SELECTOR,
+  RADIAL_TREE_LINK_SELECTOR
+} from './selectors';

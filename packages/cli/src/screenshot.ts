@@ -3,6 +3,7 @@ import http from 'http';
 import path from 'path';
 import puppeteer, { Browser } from 'puppeteer';
 import { startServer } from '@octotree/server';
+import { RADIAL_TREE_SVG_SELECTOR, RADIAL_TREE_LINK_SELECTOR } from '@octotree/core';
 import { DEFAULT_PORT, DEFAULT_DEVICE_SCALE } from './constants';
 import { CaptureOptions } from './types';
 import { ensurePngPath } from './utils';
@@ -34,9 +35,9 @@ export const captureScreenshot = async ({
     const page = await browser.newPage();
     await page.setViewport({ width, height, deviceScaleFactor: DEFAULT_DEVICE_SCALE });
     await page.goto(targetUrl, { waitUntil: 'networkidle0' });
-    await page.waitForSelector('.radial-tree svg', { timeout: 20000 });
+    await page.waitForSelector(RADIAL_TREE_SVG_SELECTOR, { timeout: 20000 });
     await page.waitForFunction(
-      () => document.querySelectorAll('.radial-tree__link').length > 0,
+      () => document.querySelectorAll(RADIAL_TREE_LINK_SELECTOR).length > 0,
       { timeout: 20000 }
     );
 
