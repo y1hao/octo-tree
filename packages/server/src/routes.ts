@@ -1,6 +1,5 @@
 import type { Request, Response } from 'express';
-import { GitRepositoryError } from '@octotree/core';
-import type { TreeResult } from './types';
+import { GitRepositoryError, type RepositoryTree } from '@octotree/core';
 
 export const extractRefParam = (req: Request): string | undefined => {
   const { ref } = req.query;
@@ -13,7 +12,7 @@ export const extractRefParam = (req: Request): string | undefined => {
 export const handleTreeRequest = async (
   req: Request,
   res: Response,
-  handler: (ref?: string) => Promise<TreeResult>,
+  handler: (ref?: string) => Promise<RepositoryTree>,
   errorMessage: string
 ): Promise<void> => {
   const requestedRef = extractRefParam(req);
@@ -31,8 +30,8 @@ export const handleTreeRequest = async (
 };
 
 export const createTreeRoutes = (
-  buildTreeForRef: (ref?: string) => Promise<TreeResult>,
-  refreshTreeForRef: (ref?: string) => Promise<TreeResult>
+  buildTreeForRef: (ref?: string) => Promise<RepositoryTree>,
+  refreshTreeForRef: (ref?: string) => Promise<RepositoryTree>
 ) => {
   return {
     getTree: async (req: Request, res: Response) => {

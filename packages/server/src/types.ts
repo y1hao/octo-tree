@@ -1,5 +1,5 @@
 import type { Express } from 'express';
-import type { TreeNode, GitStats } from '@octotree/core';
+import type { RepositoryTree } from '@octotree/core';
 import { buildRepositoryTree, collectGitStats } from '@octotree/core';
 
 export interface ServerOptions {
@@ -9,16 +9,10 @@ export interface ServerOptions {
   silent?: boolean;
 }
 
-export interface TreeResult {
-  tree: TreeNode;
-  lastUpdated: number;
-  gitStats: GitStats | null;
-}
-
 export interface AppInstance {
   app: Express;
-  getTree: (ref?: string) => Promise<TreeResult>;
-  refreshTree: (ref?: string) => Promise<TreeResult>;
+  getTree: (ref?: string) => Promise<RepositoryTree>;
+  refreshTree: (ref?: string) => Promise<RepositoryTree>;
 }
 
 export interface AppDependencies {

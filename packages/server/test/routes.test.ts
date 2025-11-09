@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import { GitRepositoryError } from '@octotree/core';
+import { GitRepositoryError, type RepositoryTree } from '@octotree/core';
 import type { Request } from 'express';
 import {
   extractRefParam,
@@ -7,7 +7,6 @@ import {
   createTreeRoutes
 } from '../src/routes';
 import { createMockRequest, createMockResponse, createTree } from './utils';
-import type { TreeResult } from '../src/types';
 
 describe('routes', () => {
   describe('extractRefParam', () => {
@@ -47,7 +46,7 @@ describe('routes', () => {
       const req = createMockRequest({ query: { ref: 'main' } });
       const res = createMockResponse();
       const tree = createTree();
-      const entry: TreeResult = {
+      const entry: RepositoryTree = {
         tree,
         lastUpdated: 1000,
         gitStats: { totalCommits: 5, latestCommitTimestamp: 1700000000000 }
@@ -104,7 +103,7 @@ describe('routes', () => {
       const req = createMockRequest({ query: {} });
       const res = createMockResponse();
       const tree = createTree();
-      const entry: TreeResult = {
+      const entry: RepositoryTree = {
         tree,
         lastUpdated: 2000,
         gitStats: null
@@ -123,7 +122,7 @@ describe('routes', () => {
       const req = createMockRequest({ query: { ref: 'main' } });
       const res = createMockResponse();
       const tree = createTree();
-      const entry: TreeResult = {
+      const entry: RepositoryTree = {
         tree,
         lastUpdated: 1000,
         gitStats: null
@@ -142,7 +141,7 @@ describe('routes', () => {
       const req = createMockRequest({ query: { ref: 'feature' } });
       const res = createMockResponse();
       const tree = createTree();
-      const entry: TreeResult = {
+      const entry: RepositoryTree = {
         tree,
         lastUpdated: 2000,
         gitStats: { totalCommits: 10, latestCommitTimestamp: 1700000000000 }

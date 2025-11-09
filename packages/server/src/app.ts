@@ -1,9 +1,8 @@
 import express from 'express';
 import { existsSync } from 'fs';
-import { buildRepositoryTree, type TreeNode } from '@octotree/core';
+import { buildRepositoryTree, type TreeNode, type RepositoryTree } from '@octotree/core';
 import type {
   AppInstance,
-  TreeResult,
   AppDependencies
 } from './types';
 import { collectGitStats } from '@octotree/core';
@@ -40,7 +39,7 @@ export const createApp = (
     };
   };
 
-  const buildTreeForRef = async (requestedRef?: string): Promise<TreeResult> => {
+  const buildTreeForRef = async (requestedRef?: string): Promise<RepositoryTree> => {
     const { key, refForBuild, allowFallback } = resolveRef(requestedRef);
     let promise = buildPromises.get(key);
     if (!promise) {
@@ -60,7 +59,7 @@ export const createApp = (
     }
 
     const gitStats = await collectStats(repoPath, refForBuild);
-    const entry: TreeResult = {
+    const entry: RepositoryTree = {
       tree,
       lastUpdated: Date.now(),
       gitStats
@@ -68,7 +67,7 @@ export const createApp = (
     return entry;
   };
 
-  const refreshTreeForRef = async (requestedRef?: string): Promise<TreeResult> => {
+  const refreshTreeForRef = async (requestedRef?: string): Promise<RepositoryTree> => {
     const { key } = resolveRef(requestedRef);
     buildPromises.delete(key);
     return buildTreeForRef(requestedRef);

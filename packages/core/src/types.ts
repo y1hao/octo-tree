@@ -29,3 +29,9 @@ export interface GitStats {
   latestCommitTimestamp: number | null;
 }
 
+export interface RepositoryTree {
+  tree: TreeNode;
+  lastUpdated: number;
+  gitStats: GitStats | null;
+}
+

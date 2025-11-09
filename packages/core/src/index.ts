@@ -58,6 +58,6 @@ export const buildRepositoryTree = async ({
 };
 
 // Re-export types and error for convenience
-export type { TreeNode, BuildTreeOptions, NodeType, GitStats } from './types';
+export type { TreeNode, BuildTreeOptions, NodeType, GitStats, RepositoryTree } from './types';
 export { GitRepositoryError } from './types';
 export { collectGitStats } from './git';

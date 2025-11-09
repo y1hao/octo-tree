@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import './App.css';
 import { RadialTree } from './components/RadialTree';
-import type { TreeNode, TreeResponse, GitStats } from './types';
+import type { TreeNode, RepositoryTree, GitStats } from './types';
 
 const formatTimestamp = (timestamp: number | null): string => {
   if (!timestamp) {
@@ -39,7 +39,7 @@ const appendRefQuery = (endpoint: string): string => {
   }
 };
 
-const fetchTree = async (endpoint: string, init?: RequestInit): Promise<TreeResponse> => {
+const fetchTree = async (endpoint: string, init?: RequestInit): Promise<RepositoryTree> => {
   const url = appendRefQuery(endpoint);
   const response = await fetch(url, {
     headers: { 'Content-Type': 'application/json' },
@@ -49,7 +49,7 @@ const fetchTree = async (endpoint: string, init?: RequestInit): Promise<TreeResp
     const message = await response.text();
     throw new Error(message || 'Failed to load tree');
   }
-  return (await response.json()) as TreeResponse;
+  return (await response.json()) as RepositoryTree;
 };
 
 export const App: React.FC = () => {
