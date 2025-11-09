@@ -30,10 +30,8 @@ describe('app', () => {
 
       const tree = createTree();
       const appInstance = createApp('/repo', 'HEAD', false, {
-        dependencies: {
-          buildRepositoryTreeFn: buildRepositoryTreeMock,
-          collectGitStatsFn: collectGitStatsMock
-        }
+        buildRepositoryTreeFn: buildRepositoryTreeMock,
+        collectGitStatsFn: collectGitStatsMock
       });
 
       const first = appInstance.getTree();
@@ -61,10 +59,8 @@ describe('app', () => {
         .mockResolvedValueOnce({ totalCommits: 2, latestCommitTimestamp: 1700000001000 });
 
       const appInstance = createApp('/repo', 'HEAD', false, {
-        dependencies: {
-          buildRepositoryTreeFn: buildRepositoryTreeMock,
-          collectGitStatsFn: collectGitStatsMock
-        }
+        buildRepositoryTreeFn: buildRepositoryTreeMock,
+        collectGitStatsFn: collectGitStatsMock
       });
 
       const first = await appInstance.getTree();
@@ -81,10 +77,8 @@ describe('app', () => {
       buildRepositoryTreeMock.mockRejectedValueOnce(new GitRepositoryError('bad ref'));
 
       const appInstance = createApp('/repo', 'HEAD', false, {
-        dependencies: {
-          buildRepositoryTreeFn: buildRepositoryTreeMock,
-          collectGitStatsFn: collectGitStatsMock
-        }
+        buildRepositoryTreeFn: buildRepositoryTreeMock,
+        collectGitStatsFn: collectGitStatsMock
       });
       const handler = getRouteHandler(appInstance.app, '/api/tree', 'get');
       const req = createMockRequest({ query: { ref: 'bad' } });
@@ -100,10 +94,8 @@ describe('app', () => {
       buildRepositoryTreeMock.mockRejectedValueOnce(new GitRepositoryError('invalid ref'));
 
       const appInstance = createApp('/repo', 'HEAD', false, {
-        dependencies: {
-          buildRepositoryTreeFn: buildRepositoryTreeMock,
-          collectGitStatsFn: collectGitStatsMock
-        }
+        buildRepositoryTreeFn: buildRepositoryTreeMock,
+        collectGitStatsFn: collectGitStatsMock
       });
       const handler = getRouteHandler(appInstance.app, '/api/tree/refresh', 'post');
       const req = createMockRequest({ query: { ref: 'invalid' } });
@@ -124,10 +116,8 @@ describe('app', () => {
       collectGitStatsMock.mockResolvedValue({ totalCommits: 1, latestCommitTimestamp: 1700000000000 });
 
       const appInstance = createApp('/repo', 'HEAD', false, {
-        dependencies: {
-          buildRepositoryTreeFn: buildRepositoryTreeMock,
-          collectGitStatsFn: collectGitStatsMock
-        }
+        buildRepositoryTreeFn: buildRepositoryTreeMock,
+        collectGitStatsFn: collectGitStatsMock
       });
 
       const mainResult = await appInstance.getTree('main');
@@ -144,10 +134,8 @@ describe('app', () => {
       collectGitStatsMock.mockResolvedValue({ totalCommits: 1, latestCommitTimestamp: 1700000000000 });
 
       const appInstance = createApp('/repo', 'main', false, {
-        dependencies: {
-          buildRepositoryTreeFn: buildRepositoryTreeMock,
-          collectGitStatsFn: collectGitStatsMock
-        }
+        buildRepositoryTreeFn: buildRepositoryTreeMock,
+        collectGitStatsFn: collectGitStatsMock
       });
 
       await appInstance.getTree();
@@ -165,10 +153,8 @@ describe('app', () => {
       collectGitStatsMock.mockResolvedValue({ totalCommits: 1, latestCommitTimestamp: 1700000000000 });
 
       const appInstance = createApp('/repo', 'HEAD', true, {
-        dependencies: {
-          buildRepositoryTreeFn: buildRepositoryTreeMock,
-          collectGitStatsFn: collectGitStatsMock
-        }
+        buildRepositoryTreeFn: buildRepositoryTreeMock,
+        collectGitStatsFn: collectGitStatsMock
       });
 
       await appInstance.getTree();

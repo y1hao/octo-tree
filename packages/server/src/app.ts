@@ -4,7 +4,7 @@ import { buildRepositoryTree, type TreeNode } from '@octotree/core';
 import type {
   AppInstance,
   CacheEntry,
-  CreateAppOptions
+  AppDependencies
 } from './types';
 import { collectGitStats } from './git';
 import { resolveStaticAssets } from './static-assets';
@@ -14,17 +14,15 @@ export const createApp = (
   repoPath: string,
   defaultRef: string,
   allowFallbackToWorkingTree: boolean,
-  options: CreateAppOptions = {}
+  dependencies?: AppDependencies
 ): AppInstance => {
   const app = express();
   app.use(express.json());
 
   const buildPromises = new Map<string, Promise<TreeNode>>();
 
-  const { dependencies = {} } = options;
-
-  const buildTree = dependencies.buildRepositoryTreeFn ?? buildRepositoryTree;
-  const collectStats = dependencies.collectGitStatsFn ?? collectGitStats;
+  const buildTree = dependencies?.buildRepositoryTreeFn ?? buildRepositoryTree;
+  const collectStats = dependencies?.collectGitStatsFn ?? collectGitStats;
 
   const resolveRef = (requestedRef?: string): {
     key: string;

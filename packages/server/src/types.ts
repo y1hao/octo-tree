@@ -32,7 +32,3 @@ export interface AppDependencies {
   collectGitStatsFn?: typeof collectGitStats;
 }
 
-export interface CreateAppOptions {
-  dependencies?: AppDependencies;
-}
-
