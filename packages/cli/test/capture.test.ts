@@ -61,7 +61,8 @@ describe('captureFrame', () => {
     });
     expect(mockPage.waitForFunction).toHaveBeenCalledWith(
       expect.any(Function),
-      { timeout: 30000 }
+      { timeout: 30000 },
+      '.radial-tree-link'
     );
   });
 
@@ -74,7 +75,8 @@ describe('captureFrame', () => {
 
     expect(mockPage.waitForFunction).toHaveBeenCalledWith(
       expect.any(Function),
-      { timeout: 20000 }
+      { timeout: 20000 },
+      '.radial-tree-link'
     );
 
     // Verify the function checks for links

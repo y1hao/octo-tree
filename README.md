@@ -110,6 +110,26 @@ Large repositories are supported—the tree builder streams `git ls-files` outpu
 
 Branch thickness reflects how many files live inside a directory, branch color lightens with the largest descendant file size (capped at the 90th percentile), and the sidebar highlights directories/files alongside latest commit time and commit count.
 
+## Performance Profiling
+
+Profile performance using Chrome DevTools (built into Node.js):
+
+```bash
+# Profile video generation
+npm run profile:video
+
+# Profile screenshot generation
+npm run profile:screenshot
+```
+
+Then:
+1. Open Chrome and go to `chrome://inspect`
+2. Click "inspect" under your Node.js process
+3. Go to "Performance" tab and click record
+4. Analyze the flame chart to identify bottlenecks
+
+See [PROFILING.md](./PROFILING.md) for detailed instructions.
+
 ## Development Scripts
 - `npm run dev --workspace @octotree/cli` — Run the CLI via `ts-node-dev` without rebuilding.
 - `npm run dev --workspace @octotree/server` — Start the server entry directly (use a built web bundle or run Vite in parallel).

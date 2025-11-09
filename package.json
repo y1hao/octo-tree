@@ -11,7 +11,9 @@
     "test": "npm run test --workspaces --if-present && npm run test:e2e",
     "test:e2e": "npm run test --workspace e2e",
     "lint": "eslint packages/**/src packages/**/test e2e/**/*.ts",
-    "lint:fix": "eslint packages/**/src packages/**/test e2e/**/*.ts --fix"
+    "lint:fix": "eslint packages/**/src packages/**/test e2e/**/*.ts --fix",
+    "profile:screenshot": "npm run build && node --inspect packages/cli/dist/index.js screenshot",
+    "profile:video": "npm run build && node --inspect packages/cli/dist/index.js video --max-seconds 5 --fps 10"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.1",
