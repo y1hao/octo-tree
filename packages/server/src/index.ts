@@ -104,10 +104,11 @@ const collectGitStats = async (repoPath: string, ref: string): Promise<GitStats>
     const latestCommitTimestamp = timeOutput ? Number.parseInt(timeOutput, 10) * 1000 : null;
 
     return {
-      totalCommits: Number.isNaN(totalCommits ?? NaN) ? null : totalCommits,
-      latestCommitTimestamp: Number.isNaN(latestCommitTimestamp ?? NaN)
-        ? null
-        : latestCommitTimestamp
+      totalCommits: totalCommits != null && Number.isFinite(totalCommits) ? totalCommits : null,
+      latestCommitTimestamp:
+        latestCommitTimestamp != null && Number.isFinite(latestCommitTimestamp)
+          ? latestCommitTimestamp
+          : null
     };
   } catch (error) {
     console.warn('Failed to collect git statistics:', error);
@@ -150,8 +151,9 @@ const createApp = (
     refForBuild: string;
     allowFallback: boolean;
   } => {
-    if (requestedRef && requestedRef.length > 0) {
-      return { key: requestedRef, refForBuild: requestedRef, allowFallback: false };
+    if (requestedRef?.trim()) {
+      const ref = requestedRef.trim();
+      return { key: ref, refForBuild: ref, allowFallback: false };
     }
     return {
       key: defaultRef,
@@ -197,16 +199,32 @@ const createApp = (
     return buildTreeForRef(requestedRef);
   };
 
-  const getCacheEntry = async (requestedRef?: string): Promise<CacheEntry> => {
-    return buildTreeForRef(requestedRef);
-  };
-
   const extractRefParam = (req: Request): string | undefined => {
     const { ref } = req.query;
     if (typeof ref === 'string' && ref.trim().length > 0) {
       return ref.trim();
     }
     return undefined;
+  };
+
+  const handleTreeRequest = async (
+    req: Request,
+    res: Response,
+    handler: (ref?: string) => Promise<CacheEntry>,
+    errorMessage: string
+  ): Promise<void> => {
+    const requestedRef = extractRefParam(req);
+    try {
+      const { tree, lastUpdated, gitStats } = await handler(requestedRef);
+      res.json({ tree, lastUpdated, gitStats });
+    } catch (error) {
+      if (error instanceof GitRepositoryError) {
+        res.status(400).json({ error: error.message });
+        return;
+      }
+      console.error(error);
+      res.status(500).json({ error: errorMessage });
+    }
   };
 
   app.get('/health', (_req, res) => {
@@ -221,34 +239,12 @@ const createApp = (
     app.use(createLevelRedirectMiddleware(level));
   }
 
-  app.get('/api/tree', async (req: Request, res: Response) => {
-    const requestedRef = extractRefParam(req);
-    try {
-      const { tree, lastUpdated, gitStats } = await getCacheEntry(requestedRef);
-      res.json({ tree, lastUpdated, gitStats });
-    } catch (error) {
-      if (error instanceof GitRepositoryError) {
-        res.status(400).json({ error: error.message });
-        return;
-      }
-      console.error(error);
-      res.status(500).json({ error: 'Failed to build repository tree' });
-    }
+  app.get('/api/tree', async (req, res) => {
+    await handleTreeRequest(req, res, buildTreeForRef, 'Failed to build repository tree');
   });
 
-  app.post('/api/tree/refresh', async (req: Request, res: Response) => {
-    const requestedRef = extractRefParam(req);
-    try {
-      const { tree, lastUpdated, gitStats } = await refreshTreeForRef(requestedRef);
-      res.json({ tree, lastUpdated, gitStats });
-    } catch (error) {
-      if (error instanceof GitRepositoryError) {
-        res.status(400).json({ error: error.message });
-        return;
-      }
-      console.error(error);
-      res.status(500).json({ error: 'Failed to refresh repository tree' });
-    }
+  app.post('/api/tree/refresh', async (req, res) => {
+    await handleTreeRequest(req, res, refreshTreeForRef, 'Failed to refresh repository tree');
   });
 
   const { root: staticRoot, indexPath } = resolveStaticAssets();
@@ -270,7 +266,7 @@ const createApp = (
 
   return {
     app,
-    getTree: getCacheEntry,
+    getTree: buildTreeForRef,
     refreshTree: refreshTreeForRef
   };
 };
@@ -307,5 +303,4 @@ export const startServer = async ({
 };
 
 export { createApp, createLevelRedirectMiddleware };
-export type { TreeNode };
-export type { AppDependencies };
+export type { TreeNode, AppDependencies };
