@@ -3,7 +3,7 @@ import { existsSync } from 'fs';
 import { buildRepositoryTree, type TreeNode } from '@octotree/core';
 import type {
   AppInstance,
-  CacheEntry,
+  TreeResult,
   AppDependencies
 } from './types';
 import { collectGitStats } from './git';
@@ -40,7 +40,7 @@ export const createApp = (
     };
   };
 
-  const buildTreeForRef = async (requestedRef?: string): Promise<CacheEntry> => {
+  const buildTreeForRef = async (requestedRef?: string): Promise<TreeResult> => {
     const { key, refForBuild, allowFallback } = resolveRef(requestedRef);
     let promise = buildPromises.get(key);
     if (!promise) {
@@ -60,7 +60,7 @@ export const createApp = (
     }
 
     const gitStats = await collectStats(repoPath, refForBuild);
-    const entry: CacheEntry = {
+    const entry: TreeResult = {
       tree,
       lastUpdated: Date.now(),
       gitStats
@@ -68,7 +68,7 @@ export const createApp = (
     return entry;
   };
 
-  const refreshTreeForRef = async (requestedRef?: string): Promise<CacheEntry> => {
+  const refreshTreeForRef = async (requestedRef?: string): Promise<TreeResult> => {
     const { key } = resolveRef(requestedRef);
     buildPromises.delete(key);
     return buildTreeForRef(requestedRef);

@@ -15,7 +15,7 @@ export interface GitStats {
   latestCommitTimestamp: number | null;
 }
 
-export interface CacheEntry {
+export interface TreeResult {
   tree: TreeNode;
   lastUpdated: number;
   gitStats: GitStats | null;
@@ -23,8 +23,8 @@ export interface CacheEntry {
 
 export interface AppInstance {
   app: Express;
-  getTree: (ref?: string) => Promise<CacheEntry>;
-  refreshTree: (ref?: string) => Promise<CacheEntry>;
+  getTree: (ref?: string) => Promise<TreeResult>;
+  refreshTree: (ref?: string) => Promise<TreeResult>;
 }
 
 export interface AppDependencies {

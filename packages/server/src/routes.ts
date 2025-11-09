@@ -1,6 +1,6 @@
 import type { Request, Response } from 'express';
 import { GitRepositoryError } from '@octotree/core';
-import type { CacheEntry } from './types';
+import type { TreeResult } from './types';
 
 export const extractRefParam = (req: Request): string | undefined => {
   const { ref } = req.query;
@@ -13,7 +13,7 @@ export const extractRefParam = (req: Request): string | undefined => {
 export const handleTreeRequest = async (
   req: Request,
   res: Response,
-  handler: (ref?: string) => Promise<CacheEntry>,
+  handler: (ref?: string) => Promise<TreeResult>,
   errorMessage: string
 ): Promise<void> => {
   const requestedRef = extractRefParam(req);
@@ -31,8 +31,8 @@ export const handleTreeRequest = async (
 };
 
 export const createTreeRoutes = (
-  buildTreeForRef: (ref?: string) => Promise<CacheEntry>,
-  refreshTreeForRef: (ref?: string) => Promise<CacheEntry>
+  buildTreeForRef: (ref?: string) => Promise<TreeResult>,
+  refreshTreeForRef: (ref?: string) => Promise<TreeResult>
 ) => {
   return {
     getTree: async (req: Request, res: Response) => {
