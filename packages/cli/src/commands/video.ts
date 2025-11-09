@@ -5,114 +5,19 @@ import path from 'path';
 import process from 'process';
 import puppeteer, { Browser, TimeoutError } from 'puppeteer';
 import { startServer } from '@octotree/server';
-import { GitRepositoryError } from '@octotree/core';
+import { GitRepositoryError, listCommitsForBranch } from '@octotree/core';
 import {
   DEFAULT_PORT,
-  DEFAULT_WIDTH,
-  DEFAULT_ASPECT_X,
-  DEFAULT_ASPECT_Y,
   DEFAULT_DEVICE_SCALE,
   VIDEO_NAVIGATION_TIMEOUT_MS,
   VIDEO_WAIT_TIMEOUT_MS
-} from './constants';
-import { ServeOptions, ScreenshotOptions, VideoOptions } from './types';
-import { ensureMp4Path } from './utils';
-import { parseWidth, parseAspect, parseCommitBound, parseLevel } from './parsers';
-import { getServerPort, buildClientUrl, closeServer } from './server';
-import { listCommitsForBranch } from '@octotree/core';
-import { sampleCommits } from './git';
-import { getFfmpegExecutable, runProcess } from './ffmpeg';
-import { captureScreenshot } from './screenshot';
-
-export const serveAction = async (options: ServeOptions) => {
-  const port = Number(options.port ?? DEFAULT_PORT.toString());
-  if (Number.isNaN(port)) {
-    console.error('Port must be a number');
-    process.exitCode = 1;
-    return;
-  }
-
-  const repoPath = path.resolve(options.repo ?? process.cwd());
-  const requestedRef = options.ref;
-  const ref = requestedRef ?? 'HEAD';
-
-  const levelResult = parseLevel(options.level);
-  if (levelResult.error) {
-    console.error(levelResult.error);
-    process.exitCode = 1;
-    return;
-  }
-  console.log(`Launching visualization for repo: ${repoPath} at ref ${ref}`);
-
-  try {
-    await startServer({ port, repoPath, ref: requestedRef });
-  } catch (error) {
-    if (error instanceof GitRepositoryError) {
-      console.error(error.message);
-      process.exitCode = 1;
-      return;
-    }
-    console.error('Failed to start server:', error);
-    process.exitCode = 1;
-  }
-};
-
-export const screenshotAction = async (options: ScreenshotOptions) => {
-  const repoPath = path.resolve(options.repo ?? process.cwd());
-  const outputPath = path.resolve(options.output ?? 'octo-tree.png');
-  const parsedPort = Number(options.port ?? '0');
-
-  if (Number.isNaN(parsedPort)) {
-    console.error('Port must be a number');
-    process.exitCode = 1;
-    return;
-  }
-
-  const requestedRef = options.ref;
-  const width = parseWidth(options.width);
-  if (width == null) {
-    console.error('Width must be a positive number');
-    process.exitCode = 1;
-    return;
-  }
-
-  const aspect = parseAspect(options.aspect);
-  if (!aspect) {
-    console.error('Aspect ratio must be provided in the form x:y with positive numbers');
-    process.exitCode = 1;
-    return;
-  }
-
-  const levelResult = parseLevel(options.level);
-  if (levelResult.error) {
-    console.error(levelResult.error);
-    process.exitCode = 1;
-    return;
-  }
-
-  const height = Math.round((width * aspect.y) / aspect.x);
-
-  try {
-    await captureScreenshot({
-      repoPath,
-      ref: requestedRef,
-      width,
-      height,
-      requestedPort: parsedPort,
-      outputPath,
-      silent: false,
-      level: levelResult.value
-    });
-  } catch (error) {
-    if (error instanceof GitRepositoryError) {
-      console.error(error.message);
-      process.exitCode = 1;
-      return;
-    }
-    console.error('Failed to capture screenshot:', error);
-    process.exitCode = 1;
-  }
-};
+} from '../constants';
+import { VideoOptions } from '../types';
+import { ensureMp4Path } from '../utils';
+import { parseWidth, parseAspect, parseCommitBound, parseLevel } from '../parsers';
+import { getServerPort, buildClientUrl, closeServer } from '../server';
+import { sampleCommits } from '../git';
+import { getFfmpegExecutable, runProcess } from '../ffmpeg';
 
 export const videoAction = async (options: VideoOptions) => {
   const repoPath = path.resolve(options.repo ?? process.cwd());

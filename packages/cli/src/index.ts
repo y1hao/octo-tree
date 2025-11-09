@@ -8,7 +8,7 @@ import {
   DEFAULT_ASPECT_Y
 } from './constants';
 import { ServeOptions, ScreenshotOptions, VideoOptions } from './types';
-import { serveAction, screenshotAction, videoAction } from './actions';
+import { serveAction, screenshotAction, videoAction } from './commands';
 
 // Re-export functions used by tests and other modules
 export { ensurePngPath, ensureMp4Path } from './utils';

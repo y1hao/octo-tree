@@ -1,13 +1,11 @@
-import path from 'path';
 import process from 'process';
 import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
 import { GitRepositoryError, listCommitsForBranch } from '@octotree/core';
-import { serveAction, screenshotAction, videoAction } from '../src/actions';
+import { videoAction } from '../../src/commands/video';
 
 vi.mock('@octotree/server');
-vi.mock('../src/screenshot');
-vi.mock('../src/git');
-vi.mock('../src/ffmpeg');
+vi.mock('../../src/git');
+vi.mock('../../src/ffmpeg');
 vi.mock('@octotree/core', async () => {
   const actual = await vi.importActual('@octotree/core');
   return {
@@ -19,222 +17,18 @@ vi.mock('fs/promises');
 vi.mock('puppeteer');
 
 const originalExitCode = process.exitCode;
-const originalCwd = process.cwd();
 
 beforeEach(() => {
   process.exitCode = 0;
   vi.clearAllMocks();
+  vi.mocked(listCommitsForBranch).mockResolvedValue(['c1', 'c2', 'c3', 'c4', 'c5']);
 });
 
 afterEach(() => {
   process.exitCode = originalExitCode;
 });
 
-describe('serveAction', () => {
-  it('starts server with default port when not specified', async () => {
-    const { startServer } = await import('@octotree/server');
-    vi.mocked(startServer).mockResolvedValue({} as any);
-
-    await serveAction({});
-
-    expect(startServer).toHaveBeenCalledWith({
-      port: 3000,
-      repoPath: expect.any(String),
-      ref: undefined
-    });
-  });
-
-  it('starts server with specified port', async () => {
-    const { startServer } = await import('@octotree/server');
-    vi.mocked(startServer).mockResolvedValue({} as any);
-
-    await serveAction({ port: '8080' });
-
-    expect(startServer).toHaveBeenCalledWith({
-      port: 8080,
-      repoPath: expect.any(String),
-      ref: undefined
-    });
-  });
-
-  it('starts server with specified repo path', async () => {
-    const { startServer } = await import('@octotree/server');
-    vi.mocked(startServer).mockResolvedValue({} as any);
-
-    await serveAction({ repo: '/custom/path' });
-
-    expect(startServer).toHaveBeenCalledWith({
-      port: 3000,
-      repoPath: path.resolve('/custom/path'),
-      ref: undefined
-    });
-  });
-
-  it('starts server with specified ref', async () => {
-    const { startServer } = await import('@octotree/server');
-    vi.mocked(startServer).mockResolvedValue({} as any);
-
-    await serveAction({ ref: 'abc123' });
-
-    expect(startServer).toHaveBeenCalledWith({
-      port: 3000,
-      repoPath: expect.any(String),
-      ref: 'abc123'
-    });
-  });
-
-  it('sets exit code to 1 when port is invalid', async () => {
-    await serveAction({ port: 'invalid' });
-    expect(process.exitCode).toBe(1);
-  });
-
-  it('sets exit code to 1 when level is invalid', async () => {
-    await serveAction({ level: 'invalid' });
-    expect(process.exitCode).toBe(1);
-  });
-
-  it('handles GitRepositoryError', async () => {
-    const { startServer } = await import('@octotree/server');
-    vi.mocked(startServer).mockRejectedValue(new GitRepositoryError('Not a git repo'));
-
-    const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
-
-    await serveAction({});
-
-    expect(consoleSpy).toHaveBeenCalledWith('Not a git repo');
-    expect(process.exitCode).toBe(1);
-
-    consoleSpy.mockRestore();
-  });
-
-  it('handles other errors', async () => {
-    const { startServer } = await import('@octotree/server');
-    vi.mocked(startServer).mockRejectedValue(new Error('Server error'));
-
-    const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
-
-    await serveAction({});
-
-    expect(consoleSpy).toHaveBeenCalledWith('Failed to start server:', expect.any(Error));
-    expect(process.exitCode).toBe(1);
-
-    consoleSpy.mockRestore();
-  });
-});
-
-describe('screenshotAction', () => {
-  it('captures screenshot with default options', async () => {
-    const { captureScreenshot } = await import('../src/screenshot');
-    vi.mocked(captureScreenshot).mockResolvedValue('octo-tree.png');
-
-    await screenshotAction({});
-
-    expect(captureScreenshot).toHaveBeenCalledWith({
-      repoPath: expect.any(String),
-      ref: undefined,
-      width: 1440,
-      height: 1080,
-      requestedPort: 0,
-      outputPath: expect.stringContaining('octo-tree.png'),
-      silent: false,
-      level: undefined
-    });
-  });
-
-  it('validates port', async () => {
-    const { captureScreenshot } = await import('../src/screenshot');
-    const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
-
-    await screenshotAction({ port: 'invalid' });
-
-    expect(consoleSpy).toHaveBeenCalledWith('Port must be a number');
-    expect(process.exitCode).toBe(1);
-    expect(captureScreenshot).not.toHaveBeenCalled();
-
-    consoleSpy.mockRestore();
-  });
-
-  it('validates width', async () => {
-    const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
-
-    await screenshotAction({ width: 'invalid' });
-
-    expect(consoleSpy).toHaveBeenCalledWith('Width must be a positive number');
-    expect(process.exitCode).toBe(1);
-
-    consoleSpy.mockRestore();
-  });
-
-  it('validates aspect ratio', async () => {
-    const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
-
-    await screenshotAction({ aspect: 'invalid' });
-
-    expect(consoleSpy).toHaveBeenCalledWith('Aspect ratio must be provided in the form x:y with positive numbers');
-    expect(process.exitCode).toBe(1);
-
-    consoleSpy.mockRestore();
-  });
-
-  it('validates level', async () => {
-    const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
-
-    await screenshotAction({ level: 'invalid' });
-
-    expect(consoleSpy).toHaveBeenCalledWith('--level must be a positive integer');
-    expect(process.exitCode).toBe(1);
-
-    consoleSpy.mockRestore();
-  });
-
-  it('calculates height from width and aspect ratio', async () => {
-    const { captureScreenshot } = await import('../src/screenshot');
-    vi.mocked(captureScreenshot).mockResolvedValue('output.png');
-
-    await screenshotAction({ width: '1920', aspect: '16:9' });
-
-    expect(captureScreenshot).toHaveBeenCalledWith(
-      expect.objectContaining({
-        width: 1920,
-        height: 1080 // 1920 * 9 / 16 = 1080
-      })
-    );
-  });
-
-  it('handles GitRepositoryError', async () => {
-    const { captureScreenshot } = await import('../src/screenshot');
-    vi.mocked(captureScreenshot).mockRejectedValue(new GitRepositoryError('Not a git repo'));
-
-    const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
-
-    await screenshotAction({});
-
-    expect(consoleSpy).toHaveBeenCalledWith('Not a git repo');
-    expect(process.exitCode).toBe(1);
-
-    consoleSpy.mockRestore();
-  });
-
-  it('handles other errors', async () => {
-    const { captureScreenshot } = await import('../src/screenshot');
-    vi.mocked(captureScreenshot).mockRejectedValue(new Error('Screenshot failed'));
-
-    const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
-
-    await screenshotAction({});
-
-    expect(consoleSpy).toHaveBeenCalledWith('Failed to capture screenshot:', expect.any(Error));
-    expect(process.exitCode).toBe(1);
-
-    consoleSpy.mockRestore();
-  });
-});
-
 describe('videoAction', () => {
-  beforeEach(() => {
-    vi.mocked(listCommitsForBranch).mockResolvedValue(['c1', 'c2', 'c3', 'c4', 'c5']);
-  });
-
   it('generates video with default options', async () => {
     vi.mocked(listCommitsForBranch).mockResolvedValue(['c1', 'c2', 'c3']);
 
@@ -267,7 +61,7 @@ describe('videoAction', () => {
     vi.mocked(fs.mkdir).mockResolvedValue(undefined);
     vi.mocked(fs.rm).mockResolvedValue(undefined);
 
-    const { runProcess } = await import('../src/ffmpeg');
+    const { runProcess } = await import('../../src/ffmpeg');
     vi.mocked(runProcess).mockResolvedValue(undefined);
 
     const consoleLogSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
