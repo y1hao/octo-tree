@@ -105,6 +105,7 @@ describe('server API integration', () => {
         // Last updated should be different (or at least the tree should be valid)
         expect(data2).toHaveProperty('tree');
         expect(data2).toHaveProperty('lastUpdated');
+        expect(data2.lastUpdated).not.toBe(initialLastUpdated);
         expect(data2.tree).toHaveProperty('name');
       } finally {
         await closeTestServer(server);
