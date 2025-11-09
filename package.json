@@ -8,9 +8,10 @@
     "build": "npm run build:backend && npm run build:web",
     "build:backend": "npx tsc -b",
     "build:web": "npm run build --workspace @octotree/web",
-    "test": "npm run test --workspaces --if-present",
-    "lint": "eslint packages/**/src packages/**/test",
-    "lint:fix": "eslint packages/**/src packages/**/test --fix"
+    "test": "npm run test --workspaces --if-present && npm run test:e2e",
+    "test:e2e": "npm run test --workspace e2e",
+    "lint": "eslint packages/**/src packages/**/test e2e/**/*.ts",
+    "lint:fix": "eslint packages/**/src packages/**/test e2e/**/*.ts --fix"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.1",
@@ -25,7 +26,8 @@
     "vitest": "^1.6.0"
   },
   "workspaces": [
-    "packages/*"
+    "packages/*",
+    "e2e"
   ],
   "dependencies": {
     "typescript": "^5.9.3"

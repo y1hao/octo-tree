@@ -16,6 +16,7 @@ export { parseWidth, parseAspect, parseCommitBound, parseLevel } from './parsers
 export { closeServer, getServerPort, buildClientUrl } from './server';
 export { sampleCommits } from './git';
 export { runProcess } from './ffmpeg';
+export { captureScreenshot } from './screenshot';
 
 const program = new Command();
 

@@ -14,6 +14,7 @@ Radial visualization tool for exploring git-tracked files in any repository. The
 - `packages/server` — Express server exposing `/api/tree` and hosting the built web assets.
 - `packages/cli` — Command-line entry point that launches the server for a target repo.
 - `packages/web` — React + Vite front-end (radial D3 visualization with hover interactions).
+- `e2e` — End-to-end tests that verify cross-package integration and workflows.
 
 ## Prerequisites
 - Node.js 18+
@@ -28,6 +29,26 @@ npm install
 ```bash
 npm test
 ```
+
+This runs all unit tests from the packages and the end-to-end (e2e) tests.
+
+### Running Tests Separately
+```bash
+# Run only unit tests from packages
+npm run test --workspaces --if-present
+
+# Run only e2e tests
+npm run test:e2e
+```
+
+The e2e tests verify:
+- Selector compatibility between CLI and web package
+- Server API endpoints (`/api/tree`, `/api/tree/refresh`)
+- Git repository handling (single commit, multiple commits, nested structures)
+- Parameter handling (ref, level)
+- End-to-end workflows
+
+**Note:** The e2e tests require the web package to be built. Run `npm run build:web` before running e2e tests if you haven't already.
 
 ## Build All Packages
 ```bash
