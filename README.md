@@ -10,11 +10,16 @@ Radial visualization tool for exploring git-tracked files in any repository. The
 | ![](./screenshots/redis.png) | ![](./screenshots/sentry.png) | ![](./screenshots/typescript.png) |
 
 ## Workspace Layout
-- `packages/core` — Git-aware tree builder and shared types.
-- `packages/server` — Express server exposing `/api/tree` and hosting the built web assets.
-- `packages/cli` — Command-line entry point that launches the server for a target repo.
-- `packages/web` — React + Vite front-end (radial D3 visualization with hover interactions).
-- `e2e` — End-to-end tests that verify cross-package integration and workflows.
+
+This is a monorepo containing multiple packages:
+
+- [`packages/core`](./packages/core/README.md) — Git-aware tree builder and shared types.
+- [`packages/server`](./packages/server/README.md) — Express server exposing `/api/tree` and hosting the built web assets.
+- [`packages/cli`](./packages/cli/README.md) — Command-line entry point that launches the server for a target repo.
+- [`packages/web`](./packages/web/README.md) — React + Vite front-end (radial D3 visualization with hover interactions).
+- [`e2e`](./e2e/README.md) — End-to-end tests that verify cross-package integration and workflows.
+
+See individual package READMEs for detailed documentation.
 
 ## Prerequisites
 - Node.js 18+
@@ -41,14 +46,9 @@ npm run test --workspaces --if-present
 npm run test:e2e
 ```
 
-The e2e tests verify:
-- Selector compatibility between CLI and web package
-- Server API endpoints (`/api/tree`, `/api/tree/refresh`)
-- Git repository handling (single commit, multiple commits, nested structures)
-- Parameter handling (ref, level)
-- End-to-end workflows
-
 **Note:** The e2e tests require the web package to be built. Run `npm run build:web` before running e2e tests if you haven't already.
+
+See [`e2e/README.md`](./e2e/README.md) for detailed test documentation.
 
 ## Build All Packages
 ```bash
