@@ -29,7 +29,7 @@ describe('captureFrame', () => {
     });
 
     expect(mockPage.goto).toHaveBeenCalledWith('http://localhost:3000', {
-      waitUntil: 'networkidle0',
+      waitUntil: 'load',
       timeout: 20000
     });
     expect(mockPage.waitForSelector).toHaveBeenCalledWith('svg.radial-tree', {
@@ -53,7 +53,7 @@ describe('captureFrame', () => {
     });
 
     expect(mockPage.goto).toHaveBeenCalledWith('http://localhost:3000', {
-      waitUntil: 'networkidle0',
+      waitUntil: 'load',
       timeout: 60000
     });
     expect(mockPage.waitForSelector).toHaveBeenCalledWith('svg.radial-tree', {

@@ -22,7 +22,7 @@ export const captureFrame = async ({
   waitTimeout = 20000
 }: CaptureFrameOptions): Promise<void> => {
   await page.goto(url, {
-    waitUntil: 'networkidle0',
+    waitUntil: 'load',
     timeout: navigationTimeout
   });
   await page.waitForSelector(RADIAL_TREE_SVG_SELECTOR, { timeout: waitTimeout });
