@@ -142,8 +142,6 @@ export const videoAction = async (options: VideoOptions) => {
 
     const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'octo-tree-video-'));
     const videoPath = ensureMp4Path(outputPath);
-    let success = false;
-
     const portPreference = parsedPort === 0 ? 0 : parsedPort || DEFAULT_PORT;
     let server: http.Server | null = null;
     let browser: Browser | null = null;
@@ -218,14 +216,9 @@ export const videoAction = async (options: VideoOptions) => {
 
       await runProcess(ffmpegExecutable, ffmpegArgs, { cwd: tempDir });
       console.log(`Saved video (${capturedFrames} frames @ ${fpsValue} fps) to ${videoPath}`);
-      success = true;
     } finally {
       await Promise.allSettled([browser?.close(), closeServer(server)]);
       await fs.rm(tempDir, { recursive: true, force: true }).catch(() => undefined);
-    }
-
-    if (!success) {
-      process.exitCode = 1;
     }
   } catch (error) {
     if (error instanceof GitRepositoryError) {
