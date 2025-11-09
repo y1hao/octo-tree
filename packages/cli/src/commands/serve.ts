@@ -3,8 +3,14 @@ import process from 'process';
 import { startServer } from '@octotree/server';
 import { GitRepositoryError } from '@octotree/core';
 import { DEFAULT_PORT } from '../constants';
-import { ServeOptions } from '../types';
 import { parseLevel } from '../parsers';
+
+export interface ServeOptions {
+  repo?: string;
+  port?: string;
+  ref?: string;
+  level?: string;
+}
 
 export const serveAction = async (options: ServeOptions) => {
   const port = Number(options.port ?? DEFAULT_PORT.toString());

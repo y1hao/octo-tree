@@ -5,9 +5,19 @@ import puppeteer, { Browser } from 'puppeteer';
 import { startServer } from '@octotree/server';
 import { RADIAL_TREE_SVG_SELECTOR, RADIAL_TREE_LINK_SELECTOR } from '@octotree/core';
 import { DEFAULT_PORT, DEFAULT_DEVICE_SCALE } from './constants';
-import { CaptureOptions } from './types';
 import { ensurePngPath } from './utils';
 import { getServerPort, buildClientUrl, closeServer } from './server';
+
+export interface CaptureOptions {
+  repoPath: string;
+  ref?: string;
+  width: number;
+  height: number;
+  requestedPort: number;
+  outputPath: string;
+  silent?: boolean;
+  level?: number;
+}
 
 export const captureScreenshot = async ({
   repoPath,

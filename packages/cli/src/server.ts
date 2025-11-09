@@ -1,5 +1,9 @@
 import http from 'http';
-import { ClientUrlOptions } from './types';
+
+export interface ClientUrlOptions {
+  ref?: string;
+  level?: number;
+}
 
 export const closeServer = (server: http.Server | null): Promise<void> => {
   if (!server) {

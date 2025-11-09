@@ -1,9 +1,18 @@
 import path from 'path';
 import process from 'process';
 import { GitRepositoryError } from '@octotree/core';
-import { ScreenshotOptions } from '../types';
 import { parseWidth, parseAspect, parseLevel } from '../parsers';
 import { captureScreenshot } from '../screenshot';
+
+export interface ScreenshotOptions {
+  repo?: string;
+  port?: string;
+  output?: string;
+  width?: string;
+  aspect?: string;
+  ref?: string;
+  level?: string;
+}
 
 export const screenshotAction = async (options: ScreenshotOptions) => {
   const repoPath = path.resolve(options.repo ?? process.cwd());

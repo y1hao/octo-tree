@@ -12,12 +12,24 @@ import {
   VIDEO_NAVIGATION_TIMEOUT_MS,
   VIDEO_WAIT_TIMEOUT_MS
 } from '../constants';
-import { VideoOptions } from '../types';
 import { ensureMp4Path } from '../utils';
 import { parseWidth, parseAspect, parseCommitBound, parseLevel } from '../parsers';
 import { getServerPort, buildClientUrl, closeServer } from '../server';
 import { sampleCommits } from '../git';
 import { getFfmpegExecutable, runProcess } from '../ffmpeg';
+
+export interface VideoOptions {
+  repo?: string;
+  port?: string;
+  output?: string;
+  width?: string;
+  aspect?: string;
+  fps?: string;
+  maxSeconds?: string;
+  from?: string;
+  to?: string;
+  level?: string;
+}
 
 export const videoAction = async (options: VideoOptions) => {
   const repoPath = path.resolve(options.repo ?? process.cwd());
