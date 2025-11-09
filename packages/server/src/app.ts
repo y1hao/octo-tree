@@ -8,7 +8,6 @@ import type {
 } from './types';
 import { collectGitStats } from './git';
 import { resolveStaticAssets } from './static-assets';
-import { createLevelRedirectMiddleware } from './middleware';
 import { createTreeRoutes } from './routes';
 
 export const createApp = (
@@ -22,7 +21,7 @@ export const createApp = (
 
   const buildPromises = new Map<string, Promise<TreeNode>>();
 
-  const { dependencies = {}, level } = options;
+  const { dependencies = {} } = options;
 
   const buildTree = dependencies.buildRepositoryTreeFn ?? buildRepositoryTree;
   const collectStats = dependencies.collectGitStatsFn ?? collectGitStats;
@@ -78,10 +77,6 @@ export const createApp = (
   };
 
   // Setup routes
-  if (typeof level === 'number' && Number.isFinite(level) && level > 0) {
-    app.use(createLevelRedirectMiddleware(level));
-  }
-
   const treeRoutes = createTreeRoutes(buildTreeForRef, refreshTreeForRef);
   app.get('/api/tree', treeRoutes.getTree);
   app.post('/api/tree/refresh', treeRoutes.refreshTree);

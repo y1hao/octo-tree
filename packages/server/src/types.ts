@@ -8,7 +8,6 @@ export interface ServerOptions {
   repoPath: string;
   ref?: string;
   silent?: boolean;
-  level?: number;
 }
 
 export interface GitStats {
@@ -35,6 +34,5 @@ export interface AppDependencies {
 
 export interface CreateAppOptions {
   dependencies?: AppDependencies;
-  level?: number;
 }
 

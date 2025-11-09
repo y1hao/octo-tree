@@ -43,7 +43,7 @@ describe('index', () => {
 
       const server = await startServer({ repoPath: '/repo' });
 
-      expect(createApp).toHaveBeenCalledWith('/repo', 'HEAD', true, { level: undefined });
+      expect(createApp).toHaveBeenCalledWith('/repo', 'HEAD', true);
       expect(mockRefreshTree).toHaveBeenCalledWith('HEAD');
       expect(mockApp.listen).toHaveBeenCalledWith(3000, expect.any(Function));
       expect(server).toBeDefined();
@@ -116,7 +116,7 @@ describe('index', () => {
 
       const server = await startServer({ repoPath: '/repo', ref: 'main' });
 
-      expect(createApp).toHaveBeenCalledWith('/repo', 'main', false, { level: undefined });
+      expect(createApp).toHaveBeenCalledWith('/repo', 'main', false);
       expect(mockRefreshTree).toHaveBeenCalledWith('main');
 
       await new Promise<void>((resolve) => {
@@ -128,40 +128,6 @@ describe('index', () => {
       });
     });
 
-    it('applies level option', async () => {
-      const mockApp = {
-        listen: vi.fn((port: number, callback: () => void) => {
-          setTimeout(callback, 0);
-          return {
-            on: vi.fn(),
-            close: vi.fn((callback?: () => void) => callback?.())
-          } as unknown as http.Server;
-        })
-      };
-
-      const mockRefreshTree = vi.fn().mockResolvedValue({
-        tree: createTree(),
-        lastUpdated: Date.now(),
-        gitStats: null
-      });
-
-      (createApp as ReturnType<typeof vi.fn>).mockReturnValue({
-        app: mockApp,
-        refreshTree: mockRefreshTree
-      });
-
-      const server = await startServer({ repoPath: '/repo', level: 5 });
-
-      expect(createApp).toHaveBeenCalledWith('/repo', 'HEAD', true, { level: 5 });
-
-      await new Promise<void>((resolve) => {
-        if (server && typeof server.close === 'function') {
-          server.close(() => resolve());
-        } else {
-          resolve();
-        }
-      });
-    });
 
     it('does not log when silent is true', async () => {
       const consoleLogSpy = vi.spyOn(console, 'log').mockImplementation(() => {});

@@ -106,7 +106,7 @@ const serveAction = async (options: ServeOptions) => {
   console.log(`Launching visualization for repo: ${repoPath} at ref ${ref}`);
 
   try {
-    await startServer({ port, repoPath, ref: requestedRef, level: levelResult.value });
+    await startServer({ port, repoPath, ref: requestedRef });
   } catch (error) {
     if (error instanceof GitRepositoryError) {
       console.error(error.message);
@@ -224,7 +224,7 @@ const captureScreenshot = async ({
 
   try {
     const portPreference = requestedPort === 0 ? 0 : requestedPort || DEFAULT_PORT;
-    server = await startServer({ port: portPreference, repoPath, ref, silent: true, level });
+    server = await startServer({ port: portPreference, repoPath, ref, silent: true });
     const port = portPreference === 0 ? getServerPort(server) : portPreference;
     const urlBase = `http://localhost:${port}`;
     const targetUrl = buildClientUrl(urlBase, { ref, level });
@@ -516,7 +516,7 @@ const videoAction = async (options: VideoOptions) => {
     try {
       await fs.mkdir(path.dirname(videoPath), { recursive: true });
 
-    server = await startServer({ port: portPreference, repoPath, silent: true, level: levelResult.value });
+    server = await startServer({ port: portPreference, repoPath, silent: true });
       const port = portPreference === 0 ? getServerPort(server) : portPreference;
       const baseUrl = `http://localhost:${port}`;
 

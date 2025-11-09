@@ -180,41 +180,6 @@ describe('app', () => {
       });
     });
 
-    it('applies level redirect middleware when level is provided', () => {
-      const tree = createTree();
-      buildRepositoryTreeMock.mockResolvedValueOnce(tree);
-      collectGitStatsMock.mockResolvedValue({ totalCommits: 1, latestCommitTimestamp: 1700000000000 });
-
-      const appInstance = createApp('/repo', 'HEAD', false, {
-        level: 3,
-        dependencies: {
-          buildRepositoryTreeFn: buildRepositoryTreeMock,
-          collectGitStatsFn: collectGitStatsMock
-        }
-      });
-
-      // Check that middleware is registered by trying to access root without level
-      const stack = (appInstance.app as unknown as { _router?: { stack: any[] } })._router?.stack ?? [];
-      const hasMiddleware = stack.some(
-        (layer) => layer.name === 'bound dispatch' && layer.regexp.test('/')
-      );
-      expect(hasMiddleware).toBe(true);
-    });
-
-    it('does not apply level redirect middleware when level is not provided', () => {
-      const tree = createTree();
-      buildRepositoryTreeMock.mockResolvedValueOnce(tree);
-      collectGitStatsMock.mockResolvedValue({ totalCommits: 1, latestCommitTimestamp: 1700000000000 });
-
-      const appInstance = createApp('/repo', 'HEAD', false, {
-        dependencies: {
-          buildRepositoryTreeFn: buildRepositoryTreeMock,
-          collectGitStatsFn: collectGitStatsMock
-        }
-      });
-
-      expect(appInstance.app).toBeDefined();
-    });
 
   });
 });
