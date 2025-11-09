@@ -6,6 +6,7 @@ import { videoAction } from '../../src/commands/video';
 vi.mock('@octotree/server');
 vi.mock('../../src/git');
 vi.mock('../../src/ffmpeg');
+vi.mock('../../src/capture');
 vi.mock('@octotree/core', async () => {
   const actual = await vi.importActual('@octotree/core');
   return {
@@ -14,7 +15,6 @@ vi.mock('@octotree/core', async () => {
   };
 });
 vi.mock('fs/promises');
-vi.mock('puppeteer');
 
 const originalExitCode = process.exitCode;
 
@@ -32,6 +32,10 @@ describe('videoAction', () => {
   it('generates video with default options', async () => {
     vi.mocked(listCommitsForBranch).mockResolvedValue(['c1', 'c2', 'c3']);
 
+    // Mock sampleCommits
+    const { sampleCommits } = await import('../../src/git');
+    vi.mocked(sampleCommits).mockReturnValue(['c1', 'c2', 'c3']);
+
     // Mock all the dependencies
     const { startServer } = await import('@octotree/server');
     const mockServer = {
@@ -40,7 +44,6 @@ describe('videoAction', () => {
     } as any;
     vi.mocked(startServer).mockResolvedValue(mockServer);
 
-    const puppeteer = await import('puppeteer');
     const mockPage = {
       setViewport: vi.fn().mockResolvedValue(undefined),
       goto: vi.fn().mockResolvedValue(undefined),
@@ -54,7 +57,13 @@ describe('videoAction', () => {
       newPage: vi.fn().mockResolvedValue(mockPage),
       close: vi.fn().mockResolvedValue(undefined)
     };
-    vi.mocked(puppeteer.default.launch).mockResolvedValue(mockBrowser as any);
+
+    const { setupBrowser, captureFrame } = await import('../../src/capture');
+    vi.mocked(setupBrowser).mockResolvedValue({
+      browser: mockBrowser as any,
+      page: mockPage as any
+    });
+    vi.mocked(captureFrame).mockResolvedValue(undefined);
 
     const fs = await import('fs/promises');
     vi.mocked(fs.mkdtemp).mockResolvedValue('/tmp/test');
@@ -74,6 +83,7 @@ describe('videoAction', () => {
     }
 
     expect(listCommitsForBranch).toHaveBeenCalled();
+    expect(setupBrowser).toHaveBeenCalled();
     // Video action should log progress (either log or warn) if it gets far enough
     // If it fails early, it may not log, so we just check that listCommitsForBranch was called
 

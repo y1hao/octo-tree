@@ -3,12 +3,12 @@ import http from 'http';
 import os from 'os';
 import path from 'path';
 import process from 'process';
-import puppeteer, { Browser, TimeoutError } from 'puppeteer';
+import type { Browser } from 'puppeteer';
+import { TimeoutError } from 'puppeteer';
 import { startServer } from '@octotree/server';
-import { GitRepositoryError, listCommitsForBranch, RADIAL_TREE_SVG_SELECTOR, RADIAL_TREE_LINK_SELECTOR } from '@octotree/core';
+import { GitRepositoryError, listCommitsForBranch } from '@octotree/core';
 import {
   DEFAULT_PORT,
-  DEFAULT_DEVICE_SCALE,
   VIDEO_NAVIGATION_TIMEOUT_MS,
   VIDEO_WAIT_TIMEOUT_MS
 } from '../constants';
@@ -17,6 +17,7 @@ import { parseWidth, parseAspect, parseCommitBound, parseLevel } from '../parser
 import { getServerPort, buildClientUrl, closeServer } from '../server';
 import { sampleCommits } from '../git';
 import { getFfmpegExecutable, runProcess } from '../ffmpeg';
+import { captureFrame, setupBrowser } from '../capture';
 
 export interface VideoOptions {
   repo?: string;
@@ -153,11 +154,14 @@ export const videoAction = async (options: VideoOptions) => {
       const port = portPreference === 0 ? getServerPort(server) : portPreference;
       const baseUrl = `http://localhost:${port}`;
 
-      browser = await puppeteer.launch({ headless: true });
-      const page = await browser.newPage();
-      await page.setViewport({ width, height, deviceScaleFactor: DEFAULT_DEVICE_SCALE });
-      page.setDefaultNavigationTimeout(VIDEO_NAVIGATION_TIMEOUT_MS);
-      page.setDefaultTimeout(VIDEO_WAIT_TIMEOUT_MS);
+      const browserSetup = await setupBrowser({
+        width,
+        height,
+        navigationTimeout: VIDEO_NAVIGATION_TIMEOUT_MS,
+        waitTimeout: VIDEO_WAIT_TIMEOUT_MS
+      });
+      browser = browserSetup.browser;
+      const { page } = browserSetup;
 
       let capturedFrames = 0;
       let skippedFrames = 0;
@@ -169,17 +173,13 @@ export const videoAction = async (options: VideoOptions) => {
 
         try {
           const frameUrl = buildClientUrl(baseUrl, { ref: commit, level: levelResult.value });
-          await page.goto(frameUrl, {
-            waitUntil: 'networkidle0',
-            timeout: VIDEO_NAVIGATION_TIMEOUT_MS
+          await captureFrame({
+            page,
+            url: frameUrl,
+            outputPath: frameFile,
+            navigationTimeout: VIDEO_NAVIGATION_TIMEOUT_MS,
+            waitTimeout: VIDEO_WAIT_TIMEOUT_MS
           });
-          await page.waitForSelector(RADIAL_TREE_SVG_SELECTOR, { timeout: VIDEO_WAIT_TIMEOUT_MS });
-          await page.waitForFunction(
-            () => document.querySelectorAll(RADIAL_TREE_LINK_SELECTOR).length > 0,
-            { timeout: VIDEO_WAIT_TIMEOUT_MS }
-          );
-
-          await page.screenshot({ path: frameFile as `${string}.png`, type: 'png', fullPage: false });
           capturedFrames += 1;
           console.log(`Captured frame ${capturedFrames}/${requestedFrames} (${commit.slice(0, 7)})`);
         } catch (error) {

@@ -5,18 +5,14 @@ import { captureScreenshot } from '../src/screenshot';
 
 vi.mock('fs/promises');
 vi.mock('@octotree/server');
-vi.mock('puppeteer', () => ({
-  default: {
-    launch: vi.fn()
-  }
-}));
+vi.mock('../src/capture');
 
 describe('captureScreenshot', () => {
   let mockServer: http.Server;
   let mockPage: any;
   let mockBrowser: any;
 
-  beforeEach(() => {
+  beforeEach(async () => {
     vi.clearAllMocks();
     vi.mocked(fs.mkdir).mockResolvedValue(undefined);
 
@@ -40,6 +36,14 @@ describe('captureScreenshot', () => {
         return {} as http.Server;
       })
     } as unknown as http.Server;
+
+    // Mock the shared capture functions
+    const { setupBrowser, captureFrame } = await import('../src/capture');
+    vi.mocked(setupBrowser).mockResolvedValue({
+      browser: mockBrowser,
+      page: mockPage
+    });
+    vi.mocked(captureFrame).mockResolvedValue(undefined);
   });
 
   afterEach(() => {
@@ -50,8 +54,7 @@ describe('captureScreenshot', () => {
     const { startServer } = await import('@octotree/server');
     vi.mocked(startServer).mockResolvedValue(mockServer);
 
-    const puppeteer = await import('puppeteer');
-    vi.mocked(puppeteer.default.launch).mockResolvedValue(mockBrowser as any);
+    const { setupBrowser, captureFrame } = await import('../src/capture');
 
     const result = await captureScreenshot({
       repoPath: '/path/to/repo',
@@ -70,24 +73,18 @@ describe('captureScreenshot', () => {
       ref: undefined,
       silent: true
     });
-    expect(puppeteer.default.launch).toHaveBeenCalledWith({ headless: true });
-    expect(mockPage.setViewport).toHaveBeenCalledWith({
+    expect(setupBrowser).toHaveBeenCalledWith({
       width: 1920,
-      height: 1080,
-      deviceScaleFactor: 2
+      height: 1080
     });
-    expect(mockPage.goto).toHaveBeenCalled();
-    expect(mockPage.waitForSelector).toHaveBeenCalledWith(
-      expect.stringContaining('radial-tree'),
-      { timeout: 20000 }
-    );
-    expect(mockPage.waitForFunction).toHaveBeenCalled();
+    expect(captureFrame).toHaveBeenCalledWith({
+      page: mockPage,
+      url: expect.stringContaining('localhost:3000'),
+      outputPath: 'output.png',
+      navigationTimeout: undefined,
+      waitTimeout: undefined
+    });
     expect(vi.mocked(fs.mkdir)).toHaveBeenCalled();
-    expect(mockPage.screenshot).toHaveBeenCalledWith({
-      path: 'output.png',
-      type: 'png',
-      fullPage: false
-    });
   });
 
   it('uses default port when requestedPort is 0', async () => {
@@ -101,8 +98,7 @@ describe('captureScreenshot', () => {
     } as unknown as http.Server;
     vi.mocked(startServer).mockResolvedValue(mockServerWithDynamicPort);
 
-    const puppeteer = await import('puppeteer');
-    vi.mocked(puppeteer.default.launch).mockResolvedValue(mockBrowser as any);
+    const { captureFrame } = await import('../src/capture');
 
     await captureScreenshot({
       repoPath: '/path/to/repo',
@@ -119,15 +115,18 @@ describe('captureScreenshot', () => {
       ref: undefined,
       silent: true
     });
-    expect(mockPage.setViewport).toHaveBeenCalled();
+    expect(captureFrame).toHaveBeenCalledWith(
+      expect.objectContaining({
+        url: expect.stringContaining('localhost:5432')
+      })
+    );
   });
 
   it('appends .png extension when missing', async () => {
     const { startServer } = await import('@octotree/server');
     vi.mocked(startServer).mockResolvedValue(mockServer);
 
-    const puppeteer = await import('puppeteer');
-    vi.mocked(puppeteer.default.launch).mockResolvedValue(mockBrowser as any);
+    const { captureFrame } = await import('../src/capture');
 
     await captureScreenshot({
       repoPath: '/path/to/repo',
@@ -138,21 +137,19 @@ describe('captureScreenshot', () => {
       silent: true
     });
 
-    expect(mockPage.setViewport).toHaveBeenCalled();
-    expect(mockPage.screenshot).toHaveBeenCalledWith({
-      path: 'output.png',
-      type: 'png',
-      fullPage: false
-    });
+    expect(captureFrame).toHaveBeenCalledWith(
+      expect.objectContaining({
+        outputPath: 'output.png'
+      })
+    );
   });
 
   it('closes browser and server in finally block', async () => {
     const { startServer } = await import('@octotree/server');
     vi.mocked(startServer).mockResolvedValue(mockServer);
 
-    const puppeteer = await import('puppeteer');
-    vi.mocked(puppeteer.default.launch).mockResolvedValue(mockBrowser as any);
-    vi.mocked(mockPage.screenshot).mockRejectedValue(new Error('Screenshot failed'));
+    const { captureFrame } = await import('../src/capture');
+    vi.mocked(captureFrame).mockRejectedValue(new Error('Screenshot failed'));
 
     await expect(
       captureScreenshot({
@@ -173,8 +170,7 @@ describe('captureScreenshot', () => {
     const { startServer } = await import('@octotree/server');
     vi.mocked(startServer).mockResolvedValue(mockServer);
 
-    const puppeteer = await import('puppeteer');
-    vi.mocked(puppeteer.default.launch).mockResolvedValue(mockBrowser as any);
+    const { captureFrame } = await import('../src/capture');
 
     await captureScreenshot({
       repoPath: '/path/to/repo',
@@ -192,7 +188,11 @@ describe('captureScreenshot', () => {
       ref: 'abc123',
       silent: true
     });
-    expect(mockPage.setViewport).toHaveBeenCalled();
+    expect(captureFrame).toHaveBeenCalledWith(
+      expect.objectContaining({
+        url: expect.stringContaining('ref=abc123')
+      })
+    );
   });
 });
 

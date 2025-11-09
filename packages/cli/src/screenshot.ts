@@ -1,12 +1,12 @@
 import fs from 'fs/promises';
 import http from 'http';
 import path from 'path';
-import puppeteer, { Browser } from 'puppeteer';
+import type { Browser } from 'puppeteer';
 import { startServer } from '@octotree/server';
-import { RADIAL_TREE_SVG_SELECTOR, RADIAL_TREE_LINK_SELECTOR } from '@octotree/core';
 import { DEFAULT_PORT, DEFAULT_DEVICE_SCALE } from './constants';
 import { ensurePngPath } from './utils';
 import { getServerPort, buildClientUrl, closeServer } from './server';
+import { captureFrame, setupBrowser } from './capture';
 
 export interface CaptureOptions {
   repoPath: string;
@@ -41,18 +41,12 @@ export const captureScreenshot = async ({
     const urlBase = `http://localhost:${port}`;
     const targetUrl = buildClientUrl(urlBase, { ref, level });
 
-    browser = await puppeteer.launch({ headless: true });
-    const page = await browser.newPage();
-    await page.setViewport({ width, height, deviceScaleFactor: DEFAULT_DEVICE_SCALE });
-    await page.goto(targetUrl, { waitUntil: 'networkidle0' });
-    await page.waitForSelector(RADIAL_TREE_SVG_SELECTOR, { timeout: 20000 });
-    await page.waitForFunction(
-      () => document.querySelectorAll(RADIAL_TREE_LINK_SELECTOR).length > 0,
-      { timeout: 20000 }
-    );
+    const browserSetup = await setupBrowser({ width, height });
+    browser = browserSetup.browser;
+    const { page } = browserSetup;
 
     await fs.mkdir(path.dirname(pngPath), { recursive: true });
-    await page.screenshot({ path: pngPath, type: 'png', fullPage: false });
+    await captureFrame({ page, url: targetUrl, outputPath: pngPath });
 
     if (!silent) {
       console.log(
