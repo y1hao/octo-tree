@@ -5,10 +5,8 @@ import path from 'path';
 import { withRepo, createTestFiles, createCommit, getHeadCommit } from './utils/repo';
 import { captureScreenshot } from '@octotree/cli';
 
-describe.skip('screenshot end-to-end', () => {
-  // These tests are skipped because they require the full screenshot workflow
-  // which can be flaky in CI environments. The selector tests verify that
-  // the selectors work correctly, which is the main integration concern.
+describe('screenshot end-to-end', () => {
+  // These tests verify the full screenshot capture workflow.
   it('captures a screenshot successfully', async () => {
     await withRepo(async (repoPath) => {
       await createTestFiles(repoPath, {

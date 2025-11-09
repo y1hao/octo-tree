@@ -26,9 +26,11 @@ export const captureFrame = async ({
     timeout: navigationTimeout
   });
   await page.waitForSelector(RADIAL_TREE_SVG_SELECTOR, { timeout: waitTimeout });
+  // Pass the selector as an argument so it gets serialized correctly to the browser context
   await page.waitForFunction(
-    () => document.querySelectorAll(RADIAL_TREE_LINK_SELECTOR).length > 0,
-    { timeout: waitTimeout }
+    (selector) => document.querySelectorAll(selector).length > 0,
+    { timeout: waitTimeout },
+    RADIAL_TREE_LINK_SELECTOR
   );
 
   await page.screenshot({ path: outputPath as `${string}.png`, type: 'png', fullPage: false });
