@@ -220,3 +220,11 @@ export const collectGitStats = async (
   }
 };
 
+export const listCommitsForBranch = async (repoPath: string): Promise<string[]> => {
+  const output = await runGitCommand(repoPath, ['rev-list', '--reverse', 'HEAD']);
+  return output
+    .split('\n')
+    .map((commit) => commit.trim())
+    .filter((commit) => commit.length > 0);
+};
+

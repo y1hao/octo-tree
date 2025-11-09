@@ -10,7 +10,8 @@ import {
   listGitManagedFiles,
   resolveGitRef,
   listFilesAtTree,
-  getCommitTimestampMs
+  getCommitTimestampMs,
+  listCommitsForBranch
 } from '../src/git';
 import { GitRepositoryError } from '../src/types';
 import { withRepo, createCommit, createTag, createTestFiles, getGitHash } from './utils';
@@ -182,6 +183,53 @@ describe('git', () => {
         await expect(
           getCommitTimestampMs(repoPath, '0000000000000000000000000000000000000000')
         ).rejects.toBeInstanceOf(GitRepositoryError);
+      });
+    });
+  });
+
+  describe('listCommitsForBranch', () => {
+    it('returns array of commit SHAs in reverse chronological order', async () => {
+      await withRepo(async (repoPath) => {
+        await createTestFiles(repoPath, { 'file1.txt': 'content1' });
+        createCommit(repoPath, 'first commit');
+        const firstCommit = getGitHash(repoPath, 'HEAD');
+
+        await createTestFiles(repoPath, { 'file2.txt': 'content2' });
+        createCommit(repoPath, 'second commit');
+        const secondCommit = getGitHash(repoPath, 'HEAD');
+
+        const commits = await listCommitsForBranch(repoPath);
+        expect(commits.length).toBeGreaterThanOrEqual(2);
+        expect(commits).toContain(firstCommit);
+        expect(commits).toContain(secondCommit);
+        // Should be in reverse order (oldest first)
+        expect(commits[0]).toBe(firstCommit);
+        expect(commits[commits.length - 1]).toBe(secondCommit);
+      });
+    });
+
+    it('filters out empty lines', async () => {
+      await withRepo(async (repoPath) => {
+        await createTestFiles(repoPath, { 'test.txt': 'content' });
+        createCommit(repoPath, 'initial');
+
+        const commits = await listCommitsForBranch(repoPath);
+        expect(commits.length).toBeGreaterThan(0);
+        commits.forEach((commit) => {
+          expect(commit.length).toBeGreaterThan(0);
+        });
+      });
+    });
+
+    it('trims whitespace from commit SHAs', async () => {
+      await withRepo(async (repoPath) => {
+        await createTestFiles(repoPath, { 'test.txt': 'content' });
+        createCommit(repoPath, 'initial');
+
+        const commits = await listCommitsForBranch(repoPath);
+        commits.forEach((commit) => {
+          expect(commit).toBe(commit.trim());
+        });
       });
     });
   });

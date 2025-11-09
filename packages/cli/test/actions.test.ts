@@ -1,13 +1,20 @@
 import path from 'path';
 import process from 'process';
 import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
-import { GitRepositoryError } from '@octotree/core';
+import { GitRepositoryError, listCommitsForBranch } from '@octotree/core';
 import { serveAction, screenshotAction, videoAction } from '../src/actions';
 
 vi.mock('@octotree/server');
 vi.mock('../src/screenshot');
 vi.mock('../src/git');
 vi.mock('../src/ffmpeg');
+vi.mock('@octotree/core', async () => {
+  const actual = await vi.importActual('@octotree/core');
+  return {
+    ...actual,
+    listCommitsForBranch: vi.fn()
+  };
+});
 vi.mock('fs/promises');
 vi.mock('puppeteer');
 
@@ -224,13 +231,11 @@ describe('screenshotAction', () => {
 });
 
 describe('videoAction', () => {
-  beforeEach(async () => {
-    const { listCommitsForBranch } = await import('../src/git');
+  beforeEach(() => {
     vi.mocked(listCommitsForBranch).mockResolvedValue(['c1', 'c2', 'c3', 'c4', 'c5']);
   });
 
   it('generates video with default options', async () => {
-    const { listCommitsForBranch } = await import('../src/git');
     vi.mocked(listCommitsForBranch).mockResolvedValue(['c1', 'c2', 'c3']);
 
     // Mock all the dependencies
@@ -371,7 +376,6 @@ describe('videoAction', () => {
   });
 
   it('handles empty commit list', async () => {
-    const { listCommitsForBranch } = await import('../src/git');
     vi.mocked(listCommitsForBranch).mockResolvedValue([]);
 
     const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
@@ -385,7 +389,6 @@ describe('videoAction', () => {
   });
 
   it('validates from index exceeds commits', async () => {
-    const { listCommitsForBranch } = await import('../src/git');
     vi.mocked(listCommitsForBranch).mockResolvedValue(['c1', 'c2']);
 
     const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
@@ -399,7 +402,6 @@ describe('videoAction', () => {
   });
 
   it('validates to index exceeds commits', async () => {
-    const { listCommitsForBranch } = await import('../src/git');
     vi.mocked(listCommitsForBranch).mockResolvedValue(['c1', 'c2']);
 
     const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
@@ -413,7 +415,6 @@ describe('videoAction', () => {
   });
 
   it('validates from is greater than to', async () => {
-    const { listCommitsForBranch } = await import('../src/git');
     vi.mocked(listCommitsForBranch).mockResolvedValue(['c1', 'c2', 'c3', 'c4', 'c5']);
 
     const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
@@ -427,7 +428,6 @@ describe('videoAction', () => {
   });
 
   it('handles GitRepositoryError', async () => {
-    const { listCommitsForBranch } = await import('../src/git');
     vi.mocked(listCommitsForBranch).mockRejectedValue(new GitRepositoryError('Not a git repo'));
 
     const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
@@ -441,7 +441,6 @@ describe('videoAction', () => {
   });
 
   it('handles other errors', async () => {
-    const { listCommitsForBranch } = await import('../src/git');
     vi.mocked(listCommitsForBranch).mockRejectedValue(new Error('Unexpected error'));
 
     const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});

@@ -19,7 +19,8 @@ import { ServeOptions, ScreenshotOptions, VideoOptions } from './types';
 import { ensureMp4Path } from './utils';
 import { parseWidth, parseAspect, parseCommitBound, parseLevel } from './parsers';
 import { getServerPort, buildClientUrl, closeServer } from './server';
-import { listCommitsForBranch, sampleCommits } from './git';
+import { listCommitsForBranch } from '@octotree/core';
+import { sampleCommits } from './git';
 import { getFfmpegExecutable, runProcess } from './ffmpeg';
 import { captureScreenshot } from './screenshot';
 
