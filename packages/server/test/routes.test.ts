@@ -1,5 +1,6 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { GitRepositoryError } from '@octotree/core';
+import type { Request } from 'express';
 import {
   extractRefParam,
   handleTreeRequest,
@@ -36,7 +37,7 @@ describe('routes', () => {
     });
 
     it('returns undefined when ref is not a string', () => {
-      const req = createMockRequest({ query: { ref: 123 } });
+      const req = createMockRequest({ query: { ref: 123 } as unknown as Request['query'] });
       expect(extractRefParam(req)).toBeUndefined();
     });
   });
@@ -66,14 +67,16 @@ describe('routes', () => {
     it('handles GitRepositoryError with 400 status', async () => {
       const req = createMockRequest({ query: { ref: 'bad-ref' } });
       const res = createMockResponse();
+      const statusMock = (res as { status: ReturnType<typeof vi.fn> }).status;
+      const jsonMock = (res as { json: ReturnType<typeof vi.fn> }).json;
       const error = new GitRepositoryError('Invalid ref');
       const handler = vi.fn().mockRejectedValue(error);
       const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
 
       await handleTreeRequest(req, res, handler, 'Test error');
 
-      expect(res.status).toHaveBeenCalledWith(400);
-      expect(res.json).toHaveBeenCalledWith({ error: 'Invalid ref' });
+      expect(statusMock).toHaveBeenCalledWith(400);
+      expect(jsonMock).toHaveBeenCalledWith({ error: 'Invalid ref' });
       expect(consoleErrorSpy).not.toHaveBeenCalled();
 
       consoleErrorSpy.mockRestore();
@@ -82,14 +85,16 @@ describe('routes', () => {
     it('handles generic errors with 500 status', async () => {
       const req = createMockRequest({ query: {} });
       const res = createMockResponse();
+      const statusMock = (res as { status: ReturnType<typeof vi.fn> }).status;
+      const jsonMock = (res as { json: ReturnType<typeof vi.fn> }).json;
       const error = new Error('Unexpected error');
       const handler = vi.fn().mockRejectedValue(error);
       const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
 
       await handleTreeRequest(req, res, handler, 'Failed to build tree');
 
-      expect(res.status).toHaveBeenCalledWith(500);
-      expect(res.json).toHaveBeenCalledWith({ error: 'Failed to build tree' });
+      expect(statusMock).toHaveBeenCalledWith(500);
+      expect(jsonMock).toHaveBeenCalledWith({ error: 'Failed to build tree' });
       expect(consoleErrorSpy).toHaveBeenCalledWith(error);
 
       consoleErrorSpy.mockRestore();
@@ -155,6 +160,8 @@ describe('routes', () => {
     it('handles errors in getTree route', async () => {
       const req = createMockRequest({ query: {} });
       const res = createMockResponse();
+      const statusMock = (res as { status: ReturnType<typeof vi.fn> }).status;
+      const jsonMock = (res as { json: ReturnType<typeof vi.fn> }).json;
       const error = new GitRepositoryError('Bad ref');
       const buildTreeForRef = vi.fn().mockRejectedValue(error);
       const refreshTreeForRef = vi.fn();
@@ -163,8 +170,8 @@ describe('routes', () => {
       const routes = createTreeRoutes(buildTreeForRef, refreshTreeForRef);
       await routes.getTree(req, res);
 
-      expect(res.status).toHaveBeenCalledWith(400);
-      expect(res.json).toHaveBeenCalledWith({ error: 'Bad ref' });
+      expect(statusMock).toHaveBeenCalledWith(400);
+      expect(jsonMock).toHaveBeenCalledWith({ error: 'Bad ref' });
 
       consoleErrorSpy.mockRestore();
     });
@@ -172,6 +179,8 @@ describe('routes', () => {
     it('handles errors in refreshTree route', async () => {
       const req = createMockRequest({ query: {} });
       const res = createMockResponse();
+      const statusMock = (res as { status: ReturnType<typeof vi.fn> }).status;
+      const jsonMock = (res as { json: ReturnType<typeof vi.fn> }).json;
       const error = new Error('Unexpected');
       const buildTreeForRef = vi.fn();
       const refreshTreeForRef = vi.fn().mockRejectedValue(error);
@@ -180,8 +189,8 @@ describe('routes', () => {
       const routes = createTreeRoutes(buildTreeForRef, refreshTreeForRef);
       await routes.refreshTree(req, res);
 
-      expect(res.status).toHaveBeenCalledWith(500);
-      expect(res.json).toHaveBeenCalledWith({ error: 'Failed to refresh repository tree' });
+      expect(statusMock).toHaveBeenCalledWith(500);
+      expect(jsonMock).toHaveBeenCalledWith({ error: 'Failed to refresh repository tree' });
 
       consoleErrorSpy.mockRestore();
     });
