@@ -1,0 +1,208 @@
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { GitRepositoryError } from '@octotree/core';
+import {
+  extractRefParam,
+  handleTreeRequest,
+  createHealthRoute,
+  createTreeRoutes
+} from '../src/routes';
+import { createMockRequest, createMockResponse, createTree } from './utils';
+import type { CacheEntry } from '../src/types';
+
+describe('routes', () => {
+  describe('extractRefParam', () => {
+    it('extracts ref from query string', () => {
+      const req = createMockRequest({ query: { ref: 'main' } });
+      expect(extractRefParam(req)).toBe('main');
+    });
+
+    it('trims whitespace from ref', () => {
+      const req = createMockRequest({ query: { ref: '  main  ' } });
+      expect(extractRefParam(req)).toBe('main');
+    });
+
+    it('returns undefined for empty string', () => {
+      const req = createMockRequest({ query: { ref: '' } });
+      expect(extractRefParam(req)).toBeUndefined();
+    });
+
+    it('returns undefined for whitespace-only string', () => {
+      const req = createMockRequest({ query: { ref: '   ' } });
+      expect(extractRefParam(req)).toBeUndefined();
+    });
+
+    it('returns undefined when ref is missing', () => {
+      const req = createMockRequest({ query: {} });
+      expect(extractRefParam(req)).toBeUndefined();
+    });
+
+    it('returns undefined when ref is not a string', () => {
+      const req = createMockRequest({ query: { ref: 123 } });
+      expect(extractRefParam(req)).toBeUndefined();
+    });
+  });
+
+  describe('handleTreeRequest', () => {
+    it('handles successful tree request', async () => {
+      const req = createMockRequest({ query: { ref: 'main' } });
+      const res = createMockResponse();
+      const tree = createTree();
+      const entry: CacheEntry = {
+        tree,
+        lastUpdated: 1000,
+        gitStats: { totalCommits: 5, latestCommitTimestamp: 1700000000000 }
+      };
+      const handler = vi.fn().mockResolvedValue(entry);
+
+      await handleTreeRequest(req, res, handler, 'Test error');
+
+      expect(handler).toHaveBeenCalledWith('main');
+      expect(res.json).toHaveBeenCalledWith({
+        tree,
+        lastUpdated: 1000,
+        gitStats: { totalCommits: 5, latestCommitTimestamp: 1700000000000 }
+      });
+    });
+
+    it('handles GitRepositoryError with 400 status', async () => {
+      const req = createMockRequest({ query: { ref: 'bad-ref' } });
+      const res = createMockResponse();
+      const error = new GitRepositoryError('Invalid ref');
+      const handler = vi.fn().mockRejectedValue(error);
+      const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+
+      await handleTreeRequest(req, res, handler, 'Test error');
+
+      expect(res.status).toHaveBeenCalledWith(400);
+      expect(res.json).toHaveBeenCalledWith({ error: 'Invalid ref' });
+      expect(consoleErrorSpy).not.toHaveBeenCalled();
+
+      consoleErrorSpy.mockRestore();
+    });
+
+    it('handles generic errors with 500 status', async () => {
+      const req = createMockRequest({ query: {} });
+      const res = createMockResponse();
+      const error = new Error('Unexpected error');
+      const handler = vi.fn().mockRejectedValue(error);
+      const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+
+      await handleTreeRequest(req, res, handler, 'Failed to build tree');
+
+      expect(res.status).toHaveBeenCalledWith(500);
+      expect(res.json).toHaveBeenCalledWith({ error: 'Failed to build tree' });
+      expect(consoleErrorSpy).toHaveBeenCalledWith(error);
+
+      consoleErrorSpy.mockRestore();
+    });
+
+    it('handles request without ref parameter', async () => {
+      const req = createMockRequest({ query: {} });
+      const res = createMockResponse();
+      const tree = createTree();
+      const entry: CacheEntry = {
+        tree,
+        lastUpdated: 2000,
+        gitStats: null
+      };
+      const handler = vi.fn().mockResolvedValue(entry);
+
+      await handleTreeRequest(req, res, handler, 'Test error');
+
+      expect(handler).toHaveBeenCalledWith(undefined);
+      expect(res.json).toHaveBeenCalledWith(entry);
+    });
+  });
+
+  describe('createHealthRoute', () => {
+    it('returns health status with repo path and last updated', () => {
+      const req = createMockRequest();
+      const res = createMockResponse();
+      const getLastUpdated = vi.fn().mockReturnValue(1234567890);
+      const route = createHealthRoute('/repo/path', getLastUpdated);
+
+      route(req, res);
+
+      expect(res.json).toHaveBeenCalledWith({
+        status: 'ok',
+        repoPath: '/repo/path',
+        lastUpdated: 1234567890
+      });
+    });
+  });
+
+  describe('createTreeRoutes', () => {
+    it('creates getTree route handler', async () => {
+      const req = createMockRequest({ query: { ref: 'main' } });
+      const res = createMockResponse();
+      const tree = createTree();
+      const entry: CacheEntry = {
+        tree,
+        lastUpdated: 1000,
+        gitStats: null
+      };
+      const buildTreeForRef = vi.fn().mockResolvedValue(entry);
+      const refreshTreeForRef = vi.fn();
+
+      const routes = createTreeRoutes(buildTreeForRef, refreshTreeForRef);
+      await routes.getTree(req, res);
+
+      expect(buildTreeForRef).toHaveBeenCalledWith('main');
+      expect(res.json).toHaveBeenCalledWith(entry);
+    });
+
+    it('creates refreshTree route handler', async () => {
+      const req = createMockRequest({ query: { ref: 'feature' } });
+      const res = createMockResponse();
+      const tree = createTree();
+      const entry: CacheEntry = {
+        tree,
+        lastUpdated: 2000,
+        gitStats: { totalCommits: 10, latestCommitTimestamp: 1700000000000 }
+      };
+      const buildTreeForRef = vi.fn();
+      const refreshTreeForRef = vi.fn().mockResolvedValue(entry);
+
+      const routes = createTreeRoutes(buildTreeForRef, refreshTreeForRef);
+      await routes.refreshTree(req, res);
+
+      expect(refreshTreeForRef).toHaveBeenCalledWith('feature');
+      expect(res.json).toHaveBeenCalledWith(entry);
+    });
+
+    it('handles errors in getTree route', async () => {
+      const req = createMockRequest({ query: {} });
+      const res = createMockResponse();
+      const error = new GitRepositoryError('Bad ref');
+      const buildTreeForRef = vi.fn().mockRejectedValue(error);
+      const refreshTreeForRef = vi.fn();
+      const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+
+      const routes = createTreeRoutes(buildTreeForRef, refreshTreeForRef);
+      await routes.getTree(req, res);
+
+      expect(res.status).toHaveBeenCalledWith(400);
+      expect(res.json).toHaveBeenCalledWith({ error: 'Bad ref' });
+
+      consoleErrorSpy.mockRestore();
+    });
+
+    it('handles errors in refreshTree route', async () => {
+      const req = createMockRequest({ query: {} });
+      const res = createMockResponse();
+      const error = new Error('Unexpected');
+      const buildTreeForRef = vi.fn();
+      const refreshTreeForRef = vi.fn().mockRejectedValue(error);
+      const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+
+      const routes = createTreeRoutes(buildTreeForRef, refreshTreeForRef);
+      await routes.refreshTree(req, res);
+
+      expect(res.status).toHaveBeenCalledWith(500);
+      expect(res.json).toHaveBeenCalledWith({ error: 'Failed to refresh repository tree' });
+
+      consoleErrorSpy.mockRestore();
+    });
+  });
+});
+
