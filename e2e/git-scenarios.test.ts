@@ -1,3 +1,4 @@
+import { execSync } from 'child_process';
 import { describe, expect, it } from 'vitest';
 import { withRepo, createTestFiles, createCommit, getAllCommits } from './utils/repo';
 import { startTestServer, closeTestServer } from './utils/server';
@@ -126,7 +127,7 @@ describe('git repository scenarios', () => {
   it('handles repository with empty commit', async () => {
     await withRepo(async (repoPath) => {
       // Create an empty commit (allow-empty flag)
-      require('child_process').execSync('git commit --allow-empty -m "empty commit"', {
+      execSync('git commit --allow-empty -m "empty commit"', {
         cwd: repoPath,
         stdio: 'ignore'
       });
