@@ -194,3 +194,29 @@ export const getCommitTimestampMs = async (repoPath: string, commitHash: string)
   }
 };
 
+export const collectGitStats = async (
+  repoPath: string,
+  ref: string
+): Promise<import('./types').GitStats> => {
+  try {
+    const [countOutput, timeOutput] = await Promise.all([
+      runGitCommand(repoPath, ['rev-list', '--count', ref]).catch(() => ''),
+      runGitCommand(repoPath, ['show', '-s', '--format=%ct', ref]).catch(() => '')
+    ]);
+
+    const totalCommits = countOutput ? Number.parseInt(countOutput.trim(), 10) : null;
+    const latestCommitTimestamp = timeOutput ? Number.parseInt(timeOutput.trim(), 10) * 1000 : null;
+
+    return {
+      totalCommits: totalCommits != null && Number.isFinite(totalCommits) ? totalCommits : null,
+      latestCommitTimestamp:
+        latestCommitTimestamp != null && Number.isFinite(latestCommitTimestamp)
+          ? latestCommitTimestamp
+          : null
+    };
+  } catch (error) {
+    console.warn('Failed to collect git statistics:', error);
+    return { totalCommits: null, latestCommitTimestamp: null };
+  }
+};
+

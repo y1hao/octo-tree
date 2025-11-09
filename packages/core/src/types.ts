@@ -24,3 +24,8 @@ export class GitRepositoryError extends Error {
   }
 }
 
+export interface GitStats {
+  totalCommits: number | null;
+  latestCommitTimestamp: number | null;
+}
+

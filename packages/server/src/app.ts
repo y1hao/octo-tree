@@ -6,7 +6,7 @@ import type {
   TreeResult,
   AppDependencies
 } from './types';
-import { collectGitStats } from './git';
+import { collectGitStats } from '@octotree/core';
 import { resolveStaticAssets } from './static-assets';
 import { createTreeRoutes } from './routes';
 
