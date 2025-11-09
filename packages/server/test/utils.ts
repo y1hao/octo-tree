@@ -42,26 +42,38 @@ export const createMockRequest = (overrides: Partial<Request> = {}): Request => 
   } as unknown as Request;
 };
 
-export const createMockResponse = (): Response & { statusCode?: number; body?: unknown } => {
+export const createMockResponse = (): Response & { 
+  statusCode?: number; 
+  body?: unknown;
+  status: ReturnType<typeof vi.fn>;
+  json: ReturnType<typeof vi.fn>;
+} => {
   const res: Partial<Response> & { statusCode?: number; body?: unknown } = {};
-  res.status = vi.fn(function status(this: Response, code: number) {
+  const statusMock = vi.fn((code: number) => {
     res.statusCode = code;
-    return this;
+    return res as Response;
   });
-  res.json = vi.fn(function json(this: Response, payload: unknown) {
+  const jsonMock = vi.fn((payload: unknown) => {
     res.body = payload;
-    return this;
+    return res as Response;
   });
-  res.send = vi.fn(function send(this: Response, payload: unknown) {
+  res.status = statusMock;
+  res.json = jsonMock;
+  res.send = vi.fn((payload: unknown) => {
     res.body = payload;
-    return this;
+    return res as Response;
   });
-  res.sendFile = vi.fn(function sendFile(this: Response, _path: string) {
-    return this;
+  res.sendFile = vi.fn((_path: string) => {
+    return res as Response;
   });
-  res.redirect = vi.fn(function redirect(this: Response, _urlOrStatus: string | number, _url?: string) {
-    return this;
+  res.redirect = vi.fn((_urlOrStatus: string | number, _url?: string) => {
+    return res as Response;
   }) as Response['redirect'];
-  return res as Response & { statusCode?: number; body?: unknown };
+  return res as Response & { 
+    statusCode?: number; 
+    body?: unknown;
+    status: ReturnType<typeof vi.fn>;
+    json: ReturnType<typeof vi.fn>;
+  };
 };
 

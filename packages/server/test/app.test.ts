@@ -1,26 +1,16 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { GitRepositoryError, type TreeNode } from '@octotree/core';
+import { GitRepositoryError, type TreeNode, buildRepositoryTree, collectGitStats } from '@octotree/core';
 import { createApp } from '../src/app';
 import { createTree, createDeferred, getRouteHandler, createMockRequest, createMockResponse } from './utils';
-import type { GitStats } from '../src/types';
-
-type BuildArgs = {
-  repoPath: string;
-  ref?: string;
-  allowFallbackToWorkingTree?: boolean;
-};
-
-type BuildTreeFn = (parameters: BuildArgs) => Promise<TreeNode>;
-type CollectStatsFn = (repoPath: string, ref: string) => Promise<GitStats>;
 
 describe('app', () => {
   describe('createApp', () => {
-    let buildRepositoryTreeMock: vi.MockedFunction<BuildTreeFn>;
-    let collectGitStatsMock: vi.MockedFunction<CollectStatsFn>;
+    let buildRepositoryTreeMock: ReturnType<typeof vi.fn>;
+    let collectGitStatsMock: ReturnType<typeof vi.fn>;
 
     beforeEach(() => {
-      buildRepositoryTreeMock = vi.fn<BuildTreeFn>();
-      collectGitStatsMock = vi.fn<CollectStatsFn>();
+      buildRepositoryTreeMock = vi.fn();
+      collectGitStatsMock = vi.fn();
     });
 
     it('coalesces concurrent builds for the same ref', async () => {
@@ -30,8 +20,8 @@ describe('app', () => {
 
       const tree = createTree();
       const appInstance = createApp('/repo', 'HEAD', false, {
-        buildRepositoryTreeFn: buildRepositoryTreeMock,
-        collectGitStatsFn: collectGitStatsMock
+        buildRepositoryTreeFn: buildRepositoryTreeMock as typeof buildRepositoryTree,
+        collectGitStatsFn: collectGitStatsMock as typeof collectGitStats
       });
 
       const first = appInstance.getTree();
@@ -59,8 +49,8 @@ describe('app', () => {
         .mockResolvedValueOnce({ totalCommits: 2, latestCommitTimestamp: 1700000001000 });
 
       const appInstance = createApp('/repo', 'HEAD', false, {
-        buildRepositoryTreeFn: buildRepositoryTreeMock,
-        collectGitStatsFn: collectGitStatsMock
+        buildRepositoryTreeFn: buildRepositoryTreeMock as typeof buildRepositoryTree,
+        collectGitStatsFn: collectGitStatsMock as typeof collectGitStats
       });
 
       const first = await appInstance.getTree();
@@ -77,8 +67,8 @@ describe('app', () => {
       buildRepositoryTreeMock.mockRejectedValueOnce(new GitRepositoryError('bad ref'));
 
       const appInstance = createApp('/repo', 'HEAD', false, {
-        buildRepositoryTreeFn: buildRepositoryTreeMock,
-        collectGitStatsFn: collectGitStatsMock
+        buildRepositoryTreeFn: buildRepositoryTreeMock as typeof buildRepositoryTree,
+        collectGitStatsFn: collectGitStatsMock as typeof collectGitStats
       });
       const handler = getRouteHandler(appInstance.app, '/api/tree', 'get');
       const req = createMockRequest({ query: { ref: 'bad' } });
@@ -86,16 +76,18 @@ describe('app', () => {
 
       await handler(req, res);
 
-      expect(res.status).toHaveBeenCalledWith(400);
-      expect(res.json).toHaveBeenCalledWith({ error: 'bad ref' });
+      const statusMock = (res as { status: ReturnType<typeof vi.fn> }).status;
+      const jsonMock = (res as { json: ReturnType<typeof vi.fn> }).json;
+      expect(statusMock).toHaveBeenCalledWith(400);
+      expect(jsonMock).toHaveBeenCalledWith({ error: 'bad ref' });
     });
 
     it('maps GitRepositoryError to a 400 response on /api/tree/refresh', async () => {
       buildRepositoryTreeMock.mockRejectedValueOnce(new GitRepositoryError('invalid ref'));
 
       const appInstance = createApp('/repo', 'HEAD', false, {
-        buildRepositoryTreeFn: buildRepositoryTreeMock,
-        collectGitStatsFn: collectGitStatsMock
+        buildRepositoryTreeFn: buildRepositoryTreeMock as typeof buildRepositoryTree,
+        collectGitStatsFn: collectGitStatsMock as typeof collectGitStats
       });
       const handler = getRouteHandler(appInstance.app, '/api/tree/refresh', 'post');
       const req = createMockRequest({ query: { ref: 'invalid' } });
@@ -103,8 +95,10 @@ describe('app', () => {
 
       await handler(req, res);
 
-      expect(res.status).toHaveBeenCalledWith(400);
-      expect(res.json).toHaveBeenCalledWith({ error: 'invalid ref' });
+      const statusMock = (res as { status: ReturnType<typeof vi.fn> }).status;
+      const jsonMock = (res as { json: ReturnType<typeof vi.fn> }).json;
+      expect(statusMock).toHaveBeenCalledWith(400);
+      expect(jsonMock).toHaveBeenCalledWith({ error: 'invalid ref' });
     });
 
     it('handles different refs independently', async () => {
@@ -116,8 +110,8 @@ describe('app', () => {
       collectGitStatsMock.mockResolvedValue({ totalCommits: 1, latestCommitTimestamp: 1700000000000 });
 
       const appInstance = createApp('/repo', 'HEAD', false, {
-        buildRepositoryTreeFn: buildRepositoryTreeMock,
-        collectGitStatsFn: collectGitStatsMock
+        buildRepositoryTreeFn: buildRepositoryTreeMock as typeof buildRepositoryTree,
+        collectGitStatsFn: collectGitStatsMock as typeof collectGitStats
       });
 
       const mainResult = await appInstance.getTree('main');
@@ -134,8 +128,8 @@ describe('app', () => {
       collectGitStatsMock.mockResolvedValue({ totalCommits: 1, latestCommitTimestamp: 1700000000000 });
 
       const appInstance = createApp('/repo', 'main', false, {
-        buildRepositoryTreeFn: buildRepositoryTreeMock,
-        collectGitStatsFn: collectGitStatsMock
+        buildRepositoryTreeFn: buildRepositoryTreeMock as typeof buildRepositoryTree,
+        collectGitStatsFn: collectGitStatsMock as typeof collectGitStats
       });
 
       await appInstance.getTree();
@@ -153,8 +147,8 @@ describe('app', () => {
       collectGitStatsMock.mockResolvedValue({ totalCommits: 1, latestCommitTimestamp: 1700000000000 });
 
       const appInstance = createApp('/repo', 'HEAD', true, {
-        buildRepositoryTreeFn: buildRepositoryTreeMock,
-        collectGitStatsFn: collectGitStatsMock
+        buildRepositoryTreeFn: buildRepositoryTreeMock as typeof buildRepositoryTree,
+        collectGitStatsFn: collectGitStatsMock as typeof collectGitStats
       });
 
       await appInstance.getTree();
