@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import './App.css';
 import { RadialTree } from './components/RadialTree';
-import type { TreeNode, RepositoryTree, GitStats } from './types';
+import type { TreeNode, RepositoryTree, GitStats } from '@octotree/core';
 
 const formatTimestamp = (timestamp: number | null): string => {
   if (!timestamp) {

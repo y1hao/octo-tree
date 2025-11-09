@@ -6,7 +6,7 @@ import {
   type HierarchyPointLink
 } from 'd3-hierarchy';
 import { linkRadial } from 'd3-shape';
-import type { TreeNode } from '../types';
+import type { TreeNode } from '@octotree/core';
 
 interface RadialTreeProps {
   data: TreeNode;

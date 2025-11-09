@@ -1,7 +1,7 @@
 import { fireEvent, render, screen } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 import { RadialTree, formatBytes } from '../src/components/RadialTree';
-import type { TreeNode } from '../src/types';
+import type { TreeNode } from '@octotree/core';
 
 const buildTree = (): TreeNode => ({
   id: 'directory:.',
